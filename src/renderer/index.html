@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Countdown Reminder</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="header">
+        <div>
+          <h1>Countdown Reminder</h1>
+          <p class="muted">Track special days with live countdowns.</p>
+        </div>
+        <div class="header-actions">
+          <label class="toggle">
+            <input id="startupToggle" type="checkbox" />
+            <span>Launch at startup</span>
+          </label>
+        </div>
+      </header>
+
+      <main class="main">
+        <section class="card">
+          <h2>Add event</h2>
+          <form id="addForm" class="grid">
+            <label>
+              <span>Title</span>
+              <input id="title" required placeholder="Birthday, deadline..." />
+            </label>
+            <label>
+              <span>Date & time</span>
+              <input id="date" type="datetime-local" required />
+            </label>
+            <label>
+              <span>Color</span>
+              <input id="color" type="color" value="#4f46e5" />
+            </label>
+            <label>
+              <span>Recurrence</span>
+              <select id="recurrence">
+                <option value="none">None</option>
+                <option value="yearly">Yearly</option>
+                <option value="monthly">Monthly</option>
+                <option value="weekly">Weekly</option>
+                <option value="daily">Daily</option>
+              </select>
+            </label>
+            <label class="toggle">
+              <input id="notify" type="checkbox" checked />
+              <span>Notifications</span>
+            </label>
+            <label>
+              <span>Notify minutes before</span>
+              <input id="notifyMinutesBefore" type="number" min="0" value="0" />
+            </label>
+            <button class="primary" type="submit">Add</button>
+          </form>
+        </section>
+
+        <section class="card">
+          <div class="row">
+            <h2>Events</h2>
+            <button id="refresh" class="ghost" type="button">Refresh</button>
+          </div>
+          <div id="events" class="events"></div>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="./renderer.ts"></script>
+
+    <div id="editBackdrop" class="modal-backdrop hidden" aria-hidden="true">
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Edit event"
+      >
+        <div class="row">
+          <h2 style="margin: 0">Edit event</h2>
+          <button id="editClose" class="ghost" type="button">Close</button>
+        </div>
+        <form id="editForm" class="grid" style="margin-top: 12px">
+          <input id="editId" type="hidden" />
+          <label>
+            <span>Title</span>
+            <input id="editTitle" required />
+          </label>
+          <label>
+            <span>Date & time</span>
+            <input id="editDate" type="datetime-local" required />
+          </label>
+          <label>
+            <span>Color</span>
+            <input id="editColor" type="color" />
+          </label>
+          <label>
+            <span>Recurrence</span>
+            <select id="editRecurrence">
+              <option value="none">None</option>
+              <option value="yearly">Yearly</option>
+              <option value="monthly">Monthly</option>
+              <option value="weekly">Weekly</option>
+              <option value="daily">Daily</option>
+            </select>
+          </label>
+          <label class="toggle">
+            <input id="editNotify" type="checkbox" />
+            <span>Notifications</span>
+          </label>
+          <label>
+            <span>Notify minutes before</span>
+            <input id="editNotifyMinutesBefore" type="number" min="0" />
+          </label>
+          <label class="toggle">
+            <input id="editPinned" type="checkbox" />
+            <span>Pinned widget</span>
+          </label>
+          <div></div>
+
+          <div class="modal-actions">
+            <button id="editDelete" class="danger" type="button">Delete</button>
+          </div>
+          <div class="modal-actions" style="justify-content: flex-end">
+            <button id="editCancel" class="ghost" type="button">Cancel</button>
+            <button class="primary" type="submit">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </body>
+</html>
