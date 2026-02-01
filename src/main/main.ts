@@ -302,9 +302,9 @@ function migrateIfNeeded() {
 function createMainWindow() {
   const win = new BrowserWindow({
     width: 960,
-    height: 720,
+    height: 568,
     minWidth: 860,
-    minHeight: 600,
+    minHeight: 540,
     title: 'Countdown Reminder',
     show: false,
     autoHideMenuBar: true,
