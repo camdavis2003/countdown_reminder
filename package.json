@@ -10,8 +10,8 @@
   "scripts": {
     "dev": "concurrently -k \"npm:dev:main\" \"npm:dev:renderer\" \"npm:dev:electron\"",
     "dev:main": "tsc -p tsconfig.main.json -w",
-    "dev:renderer": "vite",
-    "dev:electron": "wait-on http://127.0.0.1:5173 && wait-on dist/main/preload.js dist/main/main.js && cross-env NODE_ENV=development VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .",
+    "dev:renderer": "vite build --watch --mode development",
+    "dev:electron": "wait-on dist/main/preload.js dist/main/main.js dist/renderer/index.html dist/renderer/widget.html && cross-env NODE_ENV=development electron .",
     "build": "npm run build:renderer && npm run build:main",
     "build:main": "tsc -p tsconfig.main.json",
     "build:renderer": "vite build",
@@ -29,6 +29,7 @@
     "@typescript-eslint/parser": "^8.17.0",
     "concurrently": "^9.1.0",
     "cross-env": "^7.0.3",
+    "chokidar": "^4.0.3",
     "electron": "^32.2.2",
     "electron-builder": "^24.13.3",
     "eslint": "^9.17.0",

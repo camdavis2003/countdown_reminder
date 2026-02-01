@@ -3,12 +3,9 @@ import { resolve } from 'node:path';
 
 export default defineConfig({
   base: './',
-  server: {
-    port: 5173,
-    strictPort: true
-  },
+  root: resolve(__dirname, 'src/renderer'),
   build: {
-    outDir: 'dist/renderer',
+    outDir: resolve(__dirname, 'dist/renderer'),
     emptyOutDir: true,
     rollupOptions: {
       input: {

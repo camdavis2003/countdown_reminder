@@ -1,12 +1,29 @@
-export type Recurrence = 'none' | 'yearly' | 'monthly' | 'weekly' | 'daily';
+export type Recurrence =
+  | 'none'
+  | 'yearly'
+  | 'yearly_nth_weekday'
+  | 'monthly'
+  | 'weekly'
+  | 'daily'
+  | 'monthly_day_of_month'
+  | 'monthly_nth_weekday';
 
 export type CountdownEvent = {
   id: string;
   title: string;
   dateLocal: string;
   color: string;
+  textColor: string;
   timezone: 'local';
   recurrence: Recurrence;
+  /** Used when recurrence is 'monthly_day_of_month' */
+  recurrenceDayOfMonth?: number; // 1-31
+  /** Used by some yearly rules */
+  recurrenceMonth?: number; // 0=Jan .. 11=Dec
+  /** Used when recurrence is 'monthly_nth_weekday' */
+  recurrenceWeekOfMonth?: number; // 1-5 (5 treated as last if month has only 4)
+  /** Used when recurrence is 'monthly_nth_weekday' */
+  recurrenceWeekday?: number; // 0=Sun .. 6=Sat
   notify: boolean;
   notifyMinutesBefore: number;
   pinned: boolean;

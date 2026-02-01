@@ -19,6 +19,8 @@ Run dev (Vite renderer + Electron main):
 npm run dev
 ```
 
+Dev mode is port-free (no Vite dev server). It uses `vite build --watch` and Electron loads `dist/renderer/*`.
+
 ## Packaging (Windows installer)
 
 Build + create installer (NSIS):

@@ -1,16 +1,29 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, Tray } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, screen, Tray } from 'electron';
 import path from 'node:path';
 import Store from 'electron-store';
 
-type Recurrence = 'none' | 'yearly' | 'monthly' | 'weekly' | 'daily';
+type Recurrence =
+  | 'none'
+  | 'yearly'
+  | 'yearly_nth_weekday'
+  | 'monthly'
+  | 'weekly'
+  | 'daily'
+  | 'monthly_day_of_month'
+  | 'monthly_nth_weekday';
 
 export type CountdownEvent = {
   id: string;
   title: string;
   dateLocal: string; // local datetime-local string: YYYY-MM-DDTHH:mm
   color: string;
+  textColor: string;
   timezone: 'local';
   recurrence: Recurrence;
+  recurrenceDayOfMonth?: number;
+  recurrenceMonth?: number;
+  recurrenceWeekOfMonth?: number;
+  recurrenceWeekday?: number;
   notify: boolean;
   notifyMinutesBefore: number; // 0 = at time
   pinned: boolean;
@@ -19,18 +32,20 @@ export type CountdownEvent = {
 type AppState = {
   events: CountdownEvent[];
   launchAtStartup: boolean;
+  widgetGroupBounds: Electron.Rectangle | null;
 };
 
 const store = new Store<AppState>({
   name: 'countdown-reminder',
   defaults: {
     events: [],
-    launchAtStartup: true
+    launchAtStartup: true,
+    widgetGroupBounds: null
   }
 });
 
 let mainWindow: BrowserWindow | null = null;
-const widgetWindows = new Map<string, BrowserWindow>();
+let widgetGroupWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let isQuitting = false;
 
@@ -53,6 +68,35 @@ function getDevServerUrl() {
   return process.env.VITE_DEV_SERVER_URL;
 }
 
+async function setupDevFileReload() {
+  // If we are not using a dev server, reload windows when dist renderer changes.
+  if (!isDev()) return;
+  if (getDevServerUrl()) return;
+
+  try {
+    const chokidar = await import('chokidar');
+    const watchPath = path.join(app.getAppPath(), 'dist', 'renderer');
+
+    let reloadTimer: NodeJS.Timeout | null = null;
+    chokidar
+      .watch(watchPath, { ignoreInitial: true })
+      .on('all', () => {
+        if (reloadTimer) clearTimeout(reloadTimer);
+        reloadTimer = setTimeout(() => {
+          for (const win of BrowserWindow.getAllWindows()) {
+            try {
+              win.webContents.reloadIgnoringCache();
+            } catch {
+              // ignore
+            }
+          }
+        }, 200);
+      });
+  } catch {
+    // If chokidar isn't available, just skip live reload.
+  }
+}
+
 function parseLocalDate(dateLocal: string) {
   // This parses a datetime-local string in the user's local timezone.
   return new Date(dateLocal);
@@ -69,37 +113,186 @@ function toDateTimeLocalString(date: Date) {
 }
 
 function nextOccurrenceDate(ev: CountdownEvent) {
-  const d = parseLocalDate(ev.dateLocal);
-  if (ev.recurrence === 'none') return d;
+  const base = parseLocalDate(ev.dateLocal);
+  if (ev.recurrence === 'none') return base;
+
   const now = new Date();
-  while (d.getTime() < now.getTime()) {
-    switch (ev.recurrence) {
-      case 'yearly':
-        d.setFullYear(d.getFullYear() + 1);
-        break;
-      case 'monthly':
-        d.setMonth(d.getMonth() + 1);
-        break;
-      case 'weekly':
-        d.setDate(d.getDate() + 7);
-        break;
-      case 'daily':
-        d.setDate(d.getDate() + 1);
-        break;
+
+  const daysInMonth = (year: number, monthIndex: number) => new Date(year, monthIndex + 1, 0).getDate();
+  const weekOfMonthForDate = (d: Date) => Math.floor((d.getDate() - 1) / 7) + 1;
+  const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+  const nthWeekdayDayOfMonth = (year: number, monthIndex: number, weekday: number, nth: number) => {
+    const first = new Date(year, monthIndex, 1);
+    const firstWeekday = first.getDay();
+    const offset = (weekday - firstWeekday + 7) % 7;
+    const firstOccurrence = 1 + offset;
+    const candidate = firstOccurrence + (Math.max(1, Math.min(5, nth)) - 1) * 7;
+    const lastDay = daysInMonth(year, monthIndex);
+    if (candidate <= lastDay) return candidate;
+    const weeksAvailable = Math.floor((lastDay - firstOccurrence) / 7);
+    return firstOccurrence + weeksAvailable * 7;
+  };
+
+  const recurrence = ev.recurrence;
+  const d = new Date(base);
+
+  if (recurrence === 'yearly' || recurrence === 'monthly' || recurrence === 'weekly' || recurrence === 'daily') {
+    if (recurrence === 'weekly' && typeof ev.recurrenceWeekday === 'number') {
+      if (d.getTime() >= now.getTime()) return d;
+      const targetWeekday = clamp(Number(ev.recurrenceWeekday), 0, 6);
+      const candidate = new Date(now);
+      candidate.setHours(base.getHours(), base.getMinutes(), 0, 0);
+      const delta = (targetWeekday - candidate.getDay() + 7) % 7;
+      candidate.setDate(candidate.getDate() + delta);
+      if (candidate.getTime() < now.getTime()) candidate.setDate(candidate.getDate() + 7);
+      return candidate;
     }
+
+    while (d.getTime() < now.getTime()) {
+      switch (recurrence) {
+        case 'yearly':
+          d.setFullYear(d.getFullYear() + 1);
+          break;
+        case 'monthly':
+          d.setMonth(d.getMonth() + 1);
+          break;
+        case 'weekly':
+          d.setDate(d.getDate() + 7);
+          break;
+        case 'daily':
+          d.setDate(d.getDate() + 1);
+          break;
+      }
+    }
+    return d;
   }
-  return d;
+
+  if (recurrence === 'yearly_nth_weekday') {
+    const month = clamp(Number(ev.recurrenceMonth ?? base.getMonth()), 0, 11);
+    const weekday = clamp(Number(ev.recurrenceWeekday ?? base.getDay()), 0, 6);
+    const nth = clamp(Number(ev.recurrenceWeekOfMonth ?? weekOfMonthForDate(base)), 1, 5);
+    let y = base.getFullYear();
+    for (let i = 0; i < 20; i++) {
+      const day = nthWeekdayDayOfMonth(y, month, weekday, nth);
+      const candidate = new Date(y, month, day, base.getHours(), base.getMinutes(), 0, 0);
+      if (candidate.getTime() >= now.getTime()) return candidate;
+      y += 1;
+    }
+    return base;
+  }
+
+  if (recurrence === 'monthly_day_of_month') {
+    const desired = clamp(Number(ev.recurrenceDayOfMonth ?? base.getDate()), 1, 31);
+    let y = base.getFullYear();
+    let m = base.getMonth();
+    for (let i = 0; i < 240; i++) {
+      const last = daysInMonth(y, m);
+      const day = Math.min(desired, last);
+      const candidate = new Date(y, m, day, base.getHours(), base.getMinutes(), 0, 0);
+      if (candidate.getTime() >= now.getTime()) return candidate;
+      m += 1;
+      if (m >= 12) {
+        m = 0;
+        y += 1;
+      }
+    }
+    return base;
+  }
+
+  if (recurrence === 'monthly_nth_weekday') {
+    const weekday = clamp(Number(ev.recurrenceWeekday ?? base.getDay()), 0, 6);
+    const nth = clamp(Number(ev.recurrenceWeekOfMonth ?? weekOfMonthForDate(base)), 1, 5);
+    let y = base.getFullYear();
+    let m = base.getMonth();
+    for (let i = 0; i < 240; i++) {
+      const day = nthWeekdayDayOfMonth(y, m, weekday, nth);
+      const candidate = new Date(y, m, day, base.getHours(), base.getMinutes(), 0, 0);
+      if (candidate.getTime() >= now.getTime()) return candidate;
+      m += 1;
+      if (m >= 12) {
+        m = 0;
+        y += 1;
+      }
+    }
+    return base;
+  }
+
+  return base;
 }
 
 function migrateIfNeeded() {
   const st = store.store;
   const migrated = st.events.map((e: any) => {
-    if (typeof e.dateLocal === 'string') return e as CountdownEvent;
-    if (typeof e.dateISO === 'string') {
-      const d = new Date(e.dateISO);
-      return { ...e, dateLocal: toDateTimeLocalString(d) } as CountdownEvent;
+    let next: any = e;
+
+    if (typeof next.dateLocal !== 'string' && typeof next.dateISO === 'string') {
+      const d = new Date(next.dateISO);
+      next = { ...next, dateLocal: toDateTimeLocalString(d) };
     }
-    return e as CountdownEvent;
+
+    if (typeof next.textColor !== 'string') {
+      next = { ...next, textColor: '#FFFFFF' };
+    }
+
+    if (typeof next.color !== 'string') {
+      next = { ...next, color: '#4f46e5' };
+    }
+
+    if (next.timezone !== 'local') {
+      next = { ...next, timezone: 'local' };
+    }
+
+    const allowedRecurrence = new Set([
+      'none',
+      'daily',
+      'weekly',
+      'monthly',
+      'yearly',
+      'monthly_day_of_month',
+      'monthly_nth_weekday',
+      'yearly_nth_weekday'
+    ]);
+    if (typeof next.recurrence !== 'string' || next.recurrence.trim() === '' || !allowedRecurrence.has(next.recurrence)) {
+      next = { ...next, recurrence: 'none' };
+    }
+
+    // New recurrence fields (derive from dateLocal when needed)
+    try {
+      const d = typeof next.dateLocal === 'string' ? parseLocalDate(next.dateLocal) : new Date();
+      if (typeof next.recurrenceMonth !== 'number') {
+        next = { ...next, recurrenceMonth: d.getMonth() };
+      }
+      if (next.recurrence === 'monthly_day_of_month' && typeof next.recurrenceDayOfMonth !== 'number') {
+        next = { ...next, recurrenceDayOfMonth: d.getDate() };
+      }
+      if (next.recurrence === 'monthly_nth_weekday') {
+        const weekOfMonth = Math.floor((d.getDate() - 1) / 7) + 1;
+        if (typeof next.recurrenceWeekday !== 'number') next = { ...next, recurrenceWeekday: d.getDay() };
+        if (typeof next.recurrenceWeekOfMonth !== 'number') next = { ...next, recurrenceWeekOfMonth: weekOfMonth };
+      }
+      if (next.recurrence === 'yearly_nth_weekday') {
+        const weekOfMonth = Math.floor((d.getDate() - 1) / 7) + 1;
+        if (typeof next.recurrenceWeekday !== 'number') next = { ...next, recurrenceWeekday: d.getDay() };
+        if (typeof next.recurrenceWeekOfMonth !== 'number') next = { ...next, recurrenceWeekOfMonth: weekOfMonth };
+        if (typeof next.recurrenceMonth !== 'number') next = { ...next, recurrenceMonth: d.getMonth() };
+      }
+    } catch {
+      // ignore
+    }
+
+    if (typeof next.notify !== 'boolean') {
+      next = { ...next, notify: true };
+    }
+
+    if (typeof next.notifyMinutesBefore !== 'number') {
+      next = { ...next, notifyMinutesBefore: 0 };
+    }
+
+    if (typeof next.pinned !== 'boolean') {
+      next = { ...next, pinned: false };
+    }
+
+    return next as CountdownEvent;
   });
   if (JSON.stringify(migrated) !== JSON.stringify(st.events)) {
     store.set('events', migrated);
@@ -114,10 +307,15 @@ function createMainWindow() {
     minHeight: 600,
     title: 'Countdown Reminder',
     show: false,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js')
     }
   });
+
+  // Keep the Preferences window clean (no native menu bar).
+  win.setMenuBarVisibility(false);
+  win.setMenu(null);
 
   win.once('ready-to-show', () => {
     win.show();
@@ -148,49 +346,142 @@ function createMainWindow() {
   return win;
 }
 
-function createWidgetWindow(eventId: string) {
+function calculateWidgetGroupHeight(cardCount: number) {
+  const padding = 16;
+  const cardHeight = 88;
+  const gap = 8;
+  const contentHeight = cardCount === 0 ? 0 : cardCount * cardHeight + Math.max(0, cardCount - 1) * gap;
+  return padding + contentHeight;
+}
+
+function getDefaultWidgetGroupBounds(width: number, height: number): Electron.Rectangle {
+  const display = screen.getPrimaryDisplay();
+  const wa = display.workArea;
+  const margin = 12;
+  const x = wa.x + wa.width - width - margin;
+  const y = wa.y + margin;
+  return { x, y, width, height };
+}
+
+function createWidgetGroupWindow() {
+  const cardCount = store.store.events.length;
+  const width = 390;
+  const height = Math.max(120, calculateWidgetGroupHeight(cardCount));
+  const saved = store.get('widgetGroupBounds');
+  const bounds0 = saved ?? getDefaultWidgetGroupBounds(width, height);
+  const display = screen.getPrimaryDisplay();
+  const wa = display.workArea;
+  const maxHeight = Math.max(220, wa.height - 24);
+  const targetHeight = Math.min(Math.max(bounds0.height, height), maxHeight);
+  // We don't allow resizing, so treat `width` as the authoritative current width.
+  // If a saved bounds exists, keep the right edge anchored when shrinking.
+  const preferredX = saved ? bounds0.x + (bounds0.width - width) : bounds0.x;
+  const clampedX = Math.min(Math.max(preferredX, wa.x), wa.x + wa.width - width);
+  const clampedY = Math.min(Math.max(bounds0.y, wa.y), wa.y + wa.height - targetHeight);
+  const bounds = {
+    x: clampedX,
+    y: clampedY,
+    width,
+    height: targetHeight
+  };
+
   const win = new BrowserWindow({
-    width: 340,
-    height: 170,
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
     resizable: false,
     minimizable: false,
     maximizable: false,
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     skipTaskbar: true,
     frame: false,
-    transparent: false,
-    title: 'Countdown Reminder Widget',
+    transparent: true,
+    backgroundColor: '#00000000',
+    hasShadow: false,
+    title: 'Countdown Reminder Widgets',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js')
     }
   });
 
+  try {
+    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  } catch {
+    // ignore
+  }
+
+  win.on('moved', () => {
+    try {
+      store.set('widgetGroupBounds', win.getBounds());
+    } catch {
+      // ignore
+    }
+  });
+
   win.on('closed', () => {
-    widgetWindows.delete(eventId);
+    widgetGroupWindow = null;
   });
 
   const devUrl = getDevServerUrl();
   if (isDev() && devUrl) {
-    win.loadURL(`${devUrl}/widget.html?eventId=${encodeURIComponent(eventId)}`);
+    win.loadURL(`${devUrl}/widget.html`);
   } else {
-    win.loadFile(rendererPath('widget.html'), { query: { eventId } });
+    win.loadFile(rendererPath('widget.html'));
   }
   return win;
 }
 
-function upsertWidgetWindows() {
-  const { events } = store.store;
-  for (const ev of events) {
-    const existing = widgetWindows.get(ev.id);
-    if (ev.pinned) {
-      if (!existing) {
-        widgetWindows.set(ev.id, createWidgetWindow(ev.id));
-      } else {
-        existing.webContents.send('events:updated');
-      }
-    } else if (existing) {
-      existing.close();
+function upsertWidgetGroupWindow() {
+  const cardCount = store.store.events.length;
+  if (cardCount === 0) {
+    if (widgetGroupWindow) {
+      widgetGroupWindow.close();
+      widgetGroupWindow = null;
     }
+    return;
+  }
+
+  if (!widgetGroupWindow) {
+    widgetGroupWindow = createWidgetGroupWindow();
+  } else {
+    widgetGroupWindow.webContents.send('events:updated');
+  }
+
+  // Keep the height snug around the current number of cards.
+  try {
+    const b = widgetGroupWindow.getBounds();
+    const display = screen.getPrimaryDisplay();
+    const wa = display.workArea;
+    const maxHeight = Math.max(220, wa.height - 24);
+    const targetHeight = Math.min(Math.max(140, calculateWidgetGroupHeight(cardCount)), maxHeight);
+    if (Math.abs(b.height - targetHeight) > 2) {
+      widgetGroupWindow.setBounds({ ...b, height: targetHeight });
+    }
+  } catch {
+    // ignore
+  }
+}
+
+function openPreferences(eventId: string | null) {
+  if (!mainWindow) mainWindow = createMainWindow();
+  mainWindow.show();
+  mainWindow.focus();
+
+  if (!eventId) return;
+
+  const send = () => {
+    try {
+      mainWindow?.webContents.send('event:select', eventId);
+    } catch {
+      // ignore
+    }
+  };
+
+  if (mainWindow.webContents.isLoadingMainFrame()) {
+    mainWindow.webContents.once('did-finish-load', send);
+  } else {
+    send();
   }
 }
 
@@ -280,8 +571,8 @@ function getState() {
 function saveEvents(events: CountdownEvent[]) {
   store.set('events', events);
   if (mainWindow) mainWindow.webContents.send('events:updated');
-  for (const win of widgetWindows.values()) win.webContents.send('events:updated');
-  upsertWidgetWindows();
+  if (widgetGroupWindow) widgetGroupWindow.webContents.send('events:updated');
+  upsertWidgetGroupWindow();
 }
 
 function scheduleTick() {
@@ -312,14 +603,22 @@ function scheduleTick() {
 app.whenReady().then(() => {
   app.setAppUserModelId('com.camda.countdownreminder');
 
+  // In production, remove the default application menu (File/Edit/View/Help).
+  // (macOS expects an app menu, so keep it there.)
+  if (!isDev() && process.platform !== 'darwin') {
+    Menu.setApplicationMenu(null);
+  }
+
   migrateIfNeeded();
   ensureTray();
   mainWindow = createMainWindow();
 
+  setupDevFileReload();
+
   // Apply startup preference
   setStartupEnabled(store.get('launchAtStartup'));
 
-  upsertWidgetWindows();
+  upsertWidgetGroupWindow();
   scheduleTick();
 
   app.on('activate', () => {
@@ -357,4 +656,20 @@ ipcMain.handle('widget:toggle', (_evt, eventId: string, pinned: boolean) => {
   const next = events.map((e) => (e.id === eventId ? { ...e, pinned } : e));
   saveEvents(next);
   return getState();
+});
+
+ipcMain.handle('prefs:open', (_evt, eventId: string | null) => {
+  openPreferences(eventId);
+});
+
+ipcMain.handle('event:delete', (_evt, eventId: string) => {
+  const { events } = store.store;
+  const next = events.filter((e) => e.id !== eventId);
+  saveEvents(next);
+  return getState();
+});
+
+ipcMain.handle('app:quit', () => {
+  isQuitting = true;
+  app.quit();
 });

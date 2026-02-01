@@ -7,6 +7,10 @@ declare global {
       setStartup: (enabled: boolean) => Promise<AppState>;
       saveEvents: (events: any[]) => Promise<AppState>;
       toggleWidget: (eventId: string, pinned: boolean) => Promise<AppState>;
+      openPreferences: (eventId?: string) => Promise<void>;
+      deleteEvent: (eventId: string) => Promise<AppState>;
+      quitApp: () => Promise<void>;
+      onSelectEvent: (handler: (eventId: string) => void) => () => void;
       onEventsUpdated: (handler: () => void) => () => void;
     };
   }

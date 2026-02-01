@@ -1,14 +1,27 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-type Recurrence = 'none' | 'yearly' | 'monthly' | 'weekly' | 'daily';
+type Recurrence =
+  | 'none'
+  | 'yearly'
+  | 'yearly_nth_weekday'
+  | 'monthly'
+  | 'weekly'
+  | 'daily'
+  | 'monthly_day_of_month'
+  | 'monthly_nth_weekday';
 
 export type CountdownEvent = {
   id: string;
   title: string;
   dateLocal: string;
   color: string;
+  textColor: string;
   timezone: 'local';
   recurrence: Recurrence;
+  recurrenceDayOfMonth?: number;
+  recurrenceMonth?: number;
+  recurrenceWeekOfMonth?: number;
+  recurrenceWeekday?: number;
   notify: boolean;
   notifyMinutesBefore: number;
   pinned: boolean;
@@ -25,6 +38,18 @@ contextBridge.exposeInMainWorld('countdown', {
   saveEvents: async (events: CountdownEvent[]): Promise<AppState> => ipcRenderer.invoke('events:save', events),
   toggleWidget: async (eventId: string, pinned: boolean): Promise<AppState> =>
     ipcRenderer.invoke('widget:toggle', eventId, pinned),
+  openPreferences: async (eventId?: string): Promise<void> => {
+    await ipcRenderer.invoke('prefs:open', eventId ?? null);
+  },
+  deleteEvent: async (eventId: string): Promise<AppState> => ipcRenderer.invoke('event:delete', eventId),
+  quitApp: async (): Promise<void> => {
+    await ipcRenderer.invoke('app:quit');
+  },
+  onSelectEvent: (handler: (eventId: string) => void) => {
+    const listener = (_evt: Electron.IpcRendererEvent, eventId: string) => handler(eventId);
+    ipcRenderer.on('event:select', listener);
+    return () => ipcRenderer.off('event:select', listener);
+  },
   onEventsUpdated: (handler: () => void) => {
     const listener = () => handler();
     ipcRenderer.on('events:updated', listener);

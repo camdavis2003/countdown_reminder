@@ -1,12 +1,25 @@
-export type Recurrence = 'none' | 'yearly' | 'monthly' | 'weekly' | 'daily';
+export type Recurrence =
+  | 'none'
+  | 'yearly'
+  | 'yearly_nth_weekday'
+  | 'monthly'
+  | 'weekly'
+  | 'daily'
+  | 'monthly_day_of_month'
+  | 'monthly_nth_weekday';
 
 export type CountdownEvent = {
   id: string;
   title: string;
   dateLocal: string;
   color: string;
+  textColor: string;
   timezone: 'local';
   recurrence: Recurrence;
+  recurrenceDayOfMonth?: number;
+  recurrenceMonth?: number;
+  recurrenceWeekOfMonth?: number;
+  recurrenceWeekday?: number;
   notify: boolean;
   notifyMinutesBefore: number;
   pinned: boolean;
@@ -24,6 +37,10 @@ declare global {
       setStartup: (enabled: boolean) => Promise<AppState>;
       saveEvents: (events: CountdownEvent[]) => Promise<AppState>;
       toggleWidget: (eventId: string, pinned: boolean) => Promise<AppState>;
+      openPreferences: (eventId?: string) => Promise<void>;
+      deleteEvent: (eventId: string) => Promise<AppState>;
+      quitApp: () => Promise<void>;
+      onSelectEvent: (handler: (eventId: string) => void) => () => void;
       onEventsUpdated: (handler: () => void) => () => void;
     };
   }

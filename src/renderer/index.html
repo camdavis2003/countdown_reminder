@@ -3,132 +3,380 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Countdown Reminder</title>
+    <title>Special Day Preferences</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <div class="app">
-      <header class="header">
-        <div>
-          <h1>Countdown Reminder</h1>
-          <p class="muted">Track special days with live countdowns.</p>
-        </div>
-        <div class="header-actions">
+    <div class="prefs">
+      <header class="prefsTop">
+        <div class="prefsTitle">Special Day Preferences</div>
+        <div class="prefsTopRight">
           <label class="toggle">
             <input id="startupToggle" type="checkbox" />
             <span>Launch at startup</span>
           </label>
+          <button
+            id="closePrefs"
+            class="iconBtn"
+            type="button"
+            aria-label="Close"
+          >
+            ✕
+          </button>
         </div>
       </header>
 
-      <main class="main">
-        <section class="card">
-          <h2>Add event</h2>
-          <form id="addForm" class="grid">
-            <label>
-              <span>Title</span>
-              <input id="title" required placeholder="Birthday, deadline..." />
-            </label>
-            <label>
-              <span>Date & time</span>
-              <input id="date" type="datetime-local" required />
-            </label>
-            <label>
-              <span>Color</span>
-              <input id="color" type="color" value="#4f46e5" />
-            </label>
-            <label>
-              <span>Recurrence</span>
-              <select id="recurrence">
-                <option value="none">None</option>
-                <option value="yearly">Yearly</option>
-                <option value="monthly">Monthly</option>
-                <option value="weekly">Weekly</option>
-                <option value="daily">Daily</option>
-              </select>
-            </label>
-            <label class="toggle">
-              <input id="notify" type="checkbox" checked />
-              <span>Notifications</span>
-            </label>
-            <label>
-              <span>Notify minutes before</span>
-              <input id="notifyMinutesBefore" type="number" min="0" value="0" />
-            </label>
-            <button class="primary" type="submit">Add</button>
-          </form>
+      <main class="prefsMain">
+        <section class="pane paneLeft">
+          <div class="paneHeader">ALL EVENTS</div>
+          <div class="paneBody">
+            <div id="eventList" class="eventList"></div>
+          </div>
+          <div class="paneFooter">
+            <button id="addNew" class="btn" type="button">Add New</button>
+            <button id="deleteEvent" class="btn" type="button">Delete</button>
+          </div>
         </section>
 
-        <section class="card">
-          <div class="row">
-            <h2>Events</h2>
-            <button id="refresh" class="ghost" type="button">Refresh</button>
-          </div>
-          <div id="events" class="events"></div>
-        </section>
+        <div class="paneRight">
+          <section class="pane">
+            <div class="paneHeader">EVENT</div>
+            <div class="paneBody">
+              <div class="formRow">
+                <label class="formLabel" for="detailTitle">Title</label>
+                <input id="detailTitle" type="text" />
+              </div>
+
+              <div class="formRow">
+                <label class="formLabel" for="detailDate">Date / Time</label>
+                <input id="detailDate" type="datetime-local" />
+              </div>
+
+              <div class="formRow">
+                <label class="formLabel" for="detailRecurrence"
+                  >Recurrence</label
+                >
+                <select id="detailRecurrence">
+                  <option value="none" selected>None</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="yearly">Yearly</option>
+                </select>
+              </div>
+
+              <label class="checkRow">
+                <input id="detailPinned" type="checkbox" />
+                <span>Pin to top of stack</span>
+              </label>
+            </div>
+          </section>
+
+          <section class="pane" style="margin-top: 14px">
+            <div class="paneHeader">CUSTOMIZE</div>
+            <div class="paneBody">
+              <div class="formRow">
+                <label class="formLabel" for="detailBgBtn"
+                  >Background Color</label
+                >
+                <button
+                  id="detailBgBtn"
+                  class="colorCombo"
+                  type="button"
+                  aria-haspopup="dialog"
+                  aria-expanded="false"
+                >
+                  <span
+                    id="detailBgSwatch"
+                    class="colorSwatch"
+                    aria-hidden="true"
+                  ></span>
+                  <span id="detailBgText" class="colorComboText">#4F46E5</span>
+                  <span class="colorComboArrow" aria-hidden="true"></span>
+                </button>
+              </div>
+
+              <div class="formRow">
+                <label class="formLabel" for="detailTextBtn">Text Color</label>
+                <button
+                  id="detailTextBtn"
+                  class="colorCombo"
+                  type="button"
+                  aria-haspopup="dialog"
+                  aria-expanded="false"
+                >
+                  <span
+                    id="detailTextSwatch"
+                    class="colorSwatch"
+                    aria-hidden="true"
+                  ></span>
+                  <span id="detailTextText" class="colorComboText"
+                    >#FFFFFF</span
+                  >
+                  <span class="colorComboArrow" aria-hidden="true"></span>
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
       </main>
     </div>
 
-    <script type="module" src="./renderer.ts"></script>
+    <div
+      id="colorPicker"
+      class="colorPicker hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Color picker"
+    >
+      <div class="colorTabs">
+        <button id="colorTabPalettes" class="colorTab active" type="button">
+          Palettes
+        </button>
+        <button id="colorTabAdvanced" class="colorTab" type="button">
+          Advanced
+        </button>
+      </div>
 
-    <div id="editBackdrop" class="modal-backdrop hidden" aria-hidden="true">
-      <div
-        class="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Edit event"
-      >
-        <div class="row">
-          <h2 style="margin: 0">Edit event</h2>
-          <button id="editClose" class="ghost" type="button">Close</button>
+      <div id="colorPanePalettes" class="colorPane">
+        <div class="colorSectionTitle">STANDARD COLORS</div>
+        <div id="standardColors" class="colorGrid colorGridStandard"></div>
+
+        <div class="colorSectionTitle">AVAILABLE COLORS</div>
+        <div id="availableColors" class="colorGrid"></div>
+
+        <div class="colorSectionTitle">RECENT COLORS</div>
+        <div id="recentColors" class="colorGrid colorGridRecent"></div>
+      </div>
+
+      <div id="colorPaneAdvanced" class="colorPane hidden">
+        <div class="colorAdvancedRow">
+          <div class="colorPreviewWrap">
+            <div id="colorPreview" class="colorPreview"></div>
+            <div id="colorName" class="colorName">Custom</div>
+          </div>
+          <div class="colorAdvancedControls">
+            <div class="advRow">
+              <label class="advLabel">R</label>
+              <input id="colorR" type="range" min="0" max="255" />
+              <input
+                id="colorRNum"
+                class="advNum"
+                type="number"
+                min="0"
+                max="255"
+              />
+            </div>
+            <div class="advRow">
+              <label class="advLabel">G</label>
+              <input id="colorG" type="range" min="0" max="255" />
+              <input
+                id="colorGNum"
+                class="advNum"
+                type="number"
+                min="0"
+                max="255"
+              />
+            </div>
+            <div class="advRow">
+              <label class="advLabel">B</label>
+              <input id="colorB" type="range" min="0" max="255" />
+              <input
+                id="colorBNum"
+                class="advNum"
+                type="number"
+                min="0"
+                max="255"
+              />
+            </div>
+            <div class="advRow">
+              <label class="advLabel">Hex</label>
+              <input
+                id="colorHex"
+                class="advHex"
+                type="text"
+                placeholder="#RRGGBB"
+              />
+            </div>
+          </div>
         </div>
-        <form id="editForm" class="grid" style="margin-top: 12px">
-          <input id="editId" type="hidden" />
-          <label>
-            <span>Title</span>
-            <input id="editTitle" required />
-          </label>
-          <label>
-            <span>Date & time</span>
-            <input id="editDate" type="datetime-local" required />
-          </label>
-          <label>
-            <span>Color</span>
-            <input id="editColor" type="color" />
-          </label>
-          <label>
-            <span>Recurrence</span>
-            <select id="editRecurrence">
-              <option value="none">None</option>
-              <option value="yearly">Yearly</option>
-              <option value="monthly">Monthly</option>
-              <option value="weekly">Weekly</option>
-              <option value="daily">Daily</option>
-            </select>
-          </label>
-          <label class="toggle">
-            <input id="editNotify" type="checkbox" />
-            <span>Notifications</span>
-          </label>
-          <label>
-            <span>Notify minutes before</span>
-            <input id="editNotifyMinutesBefore" type="number" min="0" />
-          </label>
-          <label class="toggle">
-            <input id="editPinned" type="checkbox" />
-            <span>Pinned widget</span>
-          </label>
-          <div></div>
-
-          <div class="modal-actions">
-            <button id="editDelete" class="danger" type="button">Delete</button>
-          </div>
-          <div class="modal-actions" style="justify-content: flex-end">
-            <button id="editCancel" class="ghost" type="button">Cancel</button>
-            <button class="primary" type="submit">Save</button>
-          </div>
-        </form>
       </div>
     </div>
+
+    <div
+      id="recurModal"
+      class="modal hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Recurrence options"
+    >
+      <div id="recurBackdrop" class="modalBackdrop"></div>
+      <div class="modalCard">
+        <div class="modalTitle">Recurrence options</div>
+
+        <div class="modalBody">
+          <div id="recurWeekly" class="modalPane hidden">
+            <div class="formRow">
+              <label class="formLabel" for="recurWeeklyWeekday"
+                >Day of week</label
+              >
+              <select id="recurWeeklyWeekday">
+                <option value="0">Sunday</option>
+                <option value="1">Monday</option>
+                <option value="2">Tuesday</option>
+                <option value="3">Wednesday</option>
+                <option value="4">Thursday</option>
+                <option value="5">Friday</option>
+                <option value="6">Saturday</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="recurMonthly" class="modalPane hidden">
+            <div class="radioGroup">
+              <label class="radioRow">
+                <input
+                  type="radio"
+                  name="recurMonthlyMode"
+                  value="day"
+                  checked
+                />
+                <span id="recurMonthlyLabelDay">On day of month</span>
+              </label>
+              <label class="radioRow">
+                <input type="radio" name="recurMonthlyMode" value="nth" />
+                <span id="recurMonthlyLabelNth">On nth weekday</span>
+              </label>
+            </div>
+
+            <div id="recurMonthlyDay" class="formRow">
+              <label class="formLabel" for="recurMonthlyDayOfMonth">Day</label>
+              <input
+                id="recurMonthlyDayOfMonth"
+                type="number"
+                min="1"
+                max="31"
+              />
+            </div>
+
+            <div id="recurMonthlyNth" class="formRow hidden">
+              <label class="formLabel">Nth weekday</label>
+              <div class="inlineRow">
+                <select id="recurMonthlyWeekOfMonth" aria-label="Week of month">
+                  <option value="1">1st</option>
+                  <option value="2">2nd</option>
+                  <option value="3">3rd</option>
+                  <option value="4">4th</option>
+                  <option value="5">Last</option>
+                </select>
+                <select id="recurMonthlyWeekday" aria-label="Weekday">
+                  <option value="0">Sunday</option>
+                  <option value="1">Monday</option>
+                  <option value="2">Tuesday</option>
+                  <option value="3">Wednesday</option>
+                  <option value="4">Thursday</option>
+                  <option value="5">Friday</option>
+                  <option value="6">Saturday</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div id="recurYearly" class="modalPane hidden">
+            <div class="radioGroup">
+              <label class="radioRow">
+                <input
+                  type="radio"
+                  name="recurYearlyMode"
+                  value="date"
+                  checked
+                />
+                <span id="recurYearlyLabelDate">On a specific date</span>
+              </label>
+              <label class="radioRow">
+                <input type="radio" name="recurYearlyMode" value="nth" />
+                <span id="recurYearlyLabelNth">On nth weekday of a month</span>
+              </label>
+            </div>
+
+            <div id="recurYearlyDate" class="formRow">
+              <label class="formLabel" for="recurYearlyMonth"
+                >Month / Day</label
+              >
+              <div class="inlineRow">
+                <select id="recurYearlyMonth" aria-label="Month">
+                  <option value="0">January</option>
+                  <option value="1">February</option>
+                  <option value="2">March</option>
+                  <option value="3">April</option>
+                  <option value="4">May</option>
+                  <option value="5">June</option>
+                  <option value="6">July</option>
+                  <option value="7">August</option>
+                  <option value="8">September</option>
+                  <option value="9">October</option>
+                  <option value="10">November</option>
+                  <option value="11">December</option>
+                </select>
+                <input
+                  id="recurYearlyDayOfMonth"
+                  type="number"
+                  min="1"
+                  max="31"
+                  aria-label="Day of month"
+                />
+              </div>
+            </div>
+
+            <div id="recurYearlyNth" class="formRow hidden">
+              <label class="formLabel">Month / Nth weekday</label>
+              <div class="inlineRow">
+                <select id="recurYearlyNthMonth" aria-label="Month">
+                  <option value="0">January</option>
+                  <option value="1">February</option>
+                  <option value="2">March</option>
+                  <option value="3">April</option>
+                  <option value="4">May</option>
+                  <option value="5">June</option>
+                  <option value="6">July</option>
+                  <option value="7">August</option>
+                  <option value="8">September</option>
+                  <option value="9">October</option>
+                  <option value="10">November</option>
+                  <option value="11">December</option>
+                </select>
+                <select id="recurYearlyWeekOfMonth" aria-label="Week of month">
+                  <option value="1">1st</option>
+                  <option value="2">2nd</option>
+                  <option value="3">3rd</option>
+                  <option value="4">4th</option>
+                  <option value="5">Last</option>
+                </select>
+                <select id="recurYearlyWeekday" aria-label="Weekday">
+                  <option value="0">Sunday</option>
+                  <option value="1">Monday</option>
+                  <option value="2">Tuesday</option>
+                  <option value="3">Wednesday</option>
+                  <option value="4">Thursday</option>
+                  <option value="5">Friday</option>
+                  <option value="6">Saturday</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modalFooter">
+          <button id="recurCancel" class="btn" type="button">Cancel</button>
+          <button id="recurApply" class="btn" type="button">Apply</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="prefsCredit" aria-hidden="true">
+      <strong>Developed by Cameron J. Davis</strong>
+    </div>
+
+    <script type="module" src="./renderer.ts"></script>
   </body>
 </html>
