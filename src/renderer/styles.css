@@ -51,13 +51,17 @@ body{
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
+  -webkit-app-region: drag;
 }
 
 .prefsTopRight{
   display:flex;
   align-items:center;
   gap: 12px;
+  -webkit-app-region: no-drag;
 }
+
+.prefsTopRight *{ -webkit-app-region: no-drag; }
 
 .iconBtn{
   width: 36px;

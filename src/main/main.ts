@@ -308,6 +308,8 @@ function createMainWindow() {
     title: 'Countdown Reminder',
     show: false,
     autoHideMenuBar: true,
+    frame: false,
+    thickFrame: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js')
     }
