@@ -74,6 +74,82 @@ function nextOccurrence(ev: CountdownEvent): CountdownEvent {
   const recurrence = ev.recurrence;
   const d = new Date(base);
 
+  if (recurrence === 'interval') {
+    const rawInterval = Number(ev.recurrenceInterval ?? 1);
+    const interval = clamp(Number.isFinite(rawInterval) ? Math.trunc(rawInterval) : 1, 1, 10000);
+    const unitRaw = String(ev.recurrenceIntervalUnit ?? 'day');
+    const unit = unitRaw === 'day' || unitRaw === 'week' || unitRaw === 'month' || unitRaw === 'year' ? unitRaw : 'day';
+
+    const baseHours = base.getHours();
+    const baseMinutes = base.getMinutes();
+    const baseDayOfMonth = base.getDate();
+    const baseMonthIndex = base.getMonth();
+
+    const addDays = (dt: Date, days: number) => {
+      const out = new Date(dt);
+      out.setDate(out.getDate() + days);
+      return out;
+    };
+    const monthIndex = (dt: Date) => dt.getFullYear() * 12 + dt.getMonth();
+
+    const monthOccurrenceFromBase = (monthsToAdd: number) => {
+      const startMonthIndex = base.getFullYear() * 12 + base.getMonth();
+      const targetMonthIndex = startMonthIndex + monthsToAdd;
+      const y = Math.floor(targetMonthIndex / 12);
+      const m = targetMonthIndex % 12;
+      const last = daysInMonth(y, m);
+      const day = Math.min(baseDayOfMonth, last);
+      return new Date(y, m, day, baseHours, baseMinutes, 0, 0);
+    };
+
+    const yearOccurrenceFromBase = (yearsToAdd: number) => {
+      const y = base.getFullYear() + yearsToAdd;
+      const m = baseMonthIndex;
+      const last = daysInMonth(y, m);
+      const day = Math.min(baseDayOfMonth, last);
+      return new Date(y, m, day, baseHours, baseMinutes, 0, 0);
+    };
+
+    let start = new Date(base);
+    start.setHours(baseHours, baseMinutes, 0, 0);
+
+    if (unit === 'week' && typeof ev.recurrenceWeekday === 'number') {
+      const weekday = clamp(Number(ev.recurrenceWeekday), 0, 6);
+      const delta = (weekday - start.getDay() + 7) % 7;
+      start = addDays(start, delta);
+    }
+
+    let candidate: Date;
+    if (start.getTime() >= now.getTime()) {
+      candidate = start;
+    } else if (unit === 'day' || unit === 'week') {
+      const stepDays = interval * (unit === 'week' ? 7 : 1);
+      const approxSteps = Math.floor((now.getTime() - start.getTime()) / (stepDays * 24 * 60 * 60 * 1000));
+      candidate = approxSteps > 0 ? addDays(start, approxSteps * stepDays) : new Date(start);
+      while (candidate.getTime() < now.getTime()) candidate = addDays(candidate, stepDays);
+    } else if (unit === 'month') {
+      const diffMonths = Math.max(0, monthIndex(now) - monthIndex(start));
+      const approxMonths = Math.floor(diffMonths / interval) * interval;
+      candidate = monthOccurrenceFromBase(approxMonths);
+      if (candidate.getTime() < start.getTime()) candidate = new Date(start);
+      while (candidate.getTime() < now.getTime()) {
+        const monthsFromBase = monthIndex(candidate) - monthIndex(base);
+        candidate = monthOccurrenceFromBase(monthsFromBase + interval);
+      }
+    } else {
+      const diffYears = Math.max(0, now.getFullYear() - start.getFullYear());
+      const approxYears = Math.floor(diffYears / interval) * interval;
+      candidate = yearOccurrenceFromBase(approxYears);
+      if (candidate.getTime() < start.getTime()) candidate = new Date(start);
+      while (candidate.getTime() < now.getTime()) {
+        const yearsFromBase = candidate.getFullYear() - base.getFullYear();
+        candidate = yearOccurrenceFromBase(yearsFromBase + interval);
+      }
+    }
+
+    d.setTime(candidate.getTime());
+  } else
+
   if (recurrence === 'yearly' || recurrence === 'monthly' || recurrence === 'weekly' || recurrence === 'daily') {
     if (recurrence === 'weekly' && typeof ev.recurrenceWeekday === 'number') {
       if (d.getTime() < now.getTime()) {

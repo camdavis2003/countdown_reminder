@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 type Recurrence =
   | 'none'
+  | 'interval'
   | 'yearly'
   | 'yearly_nth_weekday'
   | 'monthly'
@@ -9,6 +10,8 @@ type Recurrence =
   | 'daily'
   | 'monthly_day_of_month'
   | 'monthly_nth_weekday';
+
+type IntervalUnit = 'day' | 'week' | 'month' | 'year';
 
 export type CountdownEvent = {
   id: string;
@@ -18,6 +21,8 @@ export type CountdownEvent = {
   textColor: string;
   timezone: 'local';
   recurrence: Recurrence;
+  recurrenceInterval?: number;
+  recurrenceIntervalUnit?: IntervalUnit;
   recurrenceDayOfMonth?: number;
   recurrenceMonth?: number;
   recurrenceWeekOfMonth?: number;

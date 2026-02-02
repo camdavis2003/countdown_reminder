@@ -62,6 +62,7 @@
                   <option value="weekly">Weekly</option>
                   <option value="monthly">Monthly</option>
                   <option value="yearly">Yearly</option>
+                  <option value="interval">Custom (Every X…)</option>
                 </select>
               </div>
 
@@ -215,6 +216,36 @@
         <div class="modalTitle">Recurrence options</div>
 
         <div class="modalBody">
+          <div id="recurInterval" class="modalPane hidden">
+            <div class="formRow">
+              <label class="formLabel" for="recurIntervalEvery"
+                >Repeat every</label
+              >
+              <div class="inlineRow">
+                <input id="recurIntervalEvery" type="number" min="1" step="1" />
+                <select id="recurIntervalUnit" aria-label="Interval unit">
+                  <option value="day">day(s)</option>
+                  <option value="week">week(s)</option>
+                  <option value="month">month(s)</option>
+                  <option value="year">year(s)</option>
+                </select>
+              </div>
+            </div>
+
+            <div id="recurIntervalWeekdayRow" class="formRow hidden">
+              <label class="formLabel" for="recurIntervalWeekday">On</label>
+              <select id="recurIntervalWeekday">
+                <option value="0">Sunday</option>
+                <option value="1">Monday</option>
+                <option value="2">Tuesday</option>
+                <option value="3">Wednesday</option>
+                <option value="4">Thursday</option>
+                <option value="5">Friday</option>
+                <option value="6">Saturday</option>
+              </select>
+            </div>
+          </div>
+
           <div id="recurWeekly" class="modalPane hidden">
             <div class="formRow">
               <label class="formLabel" for="recurWeeklyWeekday"

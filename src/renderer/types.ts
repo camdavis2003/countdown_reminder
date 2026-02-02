@@ -1,5 +1,6 @@
 export type Recurrence =
   | 'none'
+  | 'interval'
   | 'yearly'
   | 'yearly_nth_weekday'
   | 'monthly'
@@ -7,6 +8,8 @@ export type Recurrence =
   | 'daily'
   | 'monthly_day_of_month'
   | 'monthly_nth_weekday';
+
+export type IntervalUnit = 'day' | 'week' | 'month' | 'year';
 
 export type CountdownEvent = {
   id: string;
@@ -16,6 +19,10 @@ export type CountdownEvent = {
   textColor: string;
   timezone: 'local';
   recurrence: Recurrence;
+  /** Used when recurrence is 'interval' */
+  recurrenceInterval?: number; // >= 1
+  /** Used when recurrence is 'interval' */
+  recurrenceIntervalUnit?: IntervalUnit;
   /** Used when recurrence is 'monthly_day_of_month' */
   recurrenceDayOfMonth?: number; // 1-31
   /** Used by some yearly rules */

@@ -59,6 +59,12 @@ const recurBackdrop = qs<HTMLDivElement>('#recurBackdrop');
 const recurCancel = qs<HTMLButtonElement>('#recurCancel');
 const recurApply = qs<HTMLButtonElement>('#recurApply');
 
+const recurIntervalPane = qs<HTMLDivElement>('#recurInterval');
+const recurIntervalEvery = qs<HTMLInputElement>('#recurIntervalEvery');
+const recurIntervalUnit = qs<HTMLSelectElement>('#recurIntervalUnit');
+const recurIntervalWeekdayRow = qs<HTMLDivElement>('#recurIntervalWeekdayRow');
+const recurIntervalWeekday = qs<HTMLSelectElement>('#recurIntervalWeekday');
+
 const recurWeeklyPane = qs<HTMLDivElement>('#recurWeekly');
 const recurWeeklyWeekday = qs<HTMLSelectElement>('#recurWeeklyWeekday');
 
@@ -228,6 +234,88 @@ function nextOccurrenceForEvent(ev: CountdownEvent): Date {
 
   const recurrence = ev.recurrence;
   if (recurrence === 'none') return base;
+
+  if (recurrence === 'interval') {
+    const rawInterval = Number(ev.recurrenceInterval ?? 1);
+    const interval = clamp(Number.isFinite(rawInterval) ? Math.trunc(rawInterval) : 1, 1, 10000);
+    const unitRaw = String(ev.recurrenceIntervalUnit ?? 'day');
+    const unit = unitRaw === 'day' || unitRaw === 'week' || unitRaw === 'month' || unitRaw === 'year' ? unitRaw : 'day';
+
+    const baseHours = base.getHours();
+    const baseMinutes = base.getMinutes();
+    const baseDayOfMonth = base.getDate();
+    const baseMonthIndex = base.getMonth();
+
+    const addDays = (d: Date, days: number) => {
+      const out = new Date(d);
+      out.setDate(out.getDate() + days);
+      return out;
+    };
+    const daysInMonthLocal = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
+    const monthIndex = (d: Date) => d.getFullYear() * 12 + d.getMonth();
+
+    const monthOccurrenceFromBase = (monthsToAdd: number) => {
+      const startMonthIndex = base.getFullYear() * 12 + base.getMonth();
+      const targetMonthIndex = startMonthIndex + monthsToAdd;
+      const y = Math.floor(targetMonthIndex / 12);
+      const m = targetMonthIndex % 12;
+      const last = daysInMonthLocal(y, m);
+      const day = Math.min(baseDayOfMonth, last);
+      return new Date(y, m, day, baseHours, baseMinutes, 0, 0);
+    };
+
+    const yearOccurrenceFromBase = (yearsToAdd: number) => {
+      const y = base.getFullYear() + yearsToAdd;
+      const m = baseMonthIndex;
+      const last = daysInMonthLocal(y, m);
+      const day = Math.min(baseDayOfMonth, last);
+      return new Date(y, m, day, baseHours, baseMinutes, 0, 0);
+    };
+
+    // Start is the first scheduled time based on the user's selected base date.
+    let start = new Date(base);
+    start.setHours(baseHours, baseMinutes, 0, 0);
+
+    // For weekly interval rules, we anchor the series to the first selected weekday on/after the base date.
+    if (unit === 'week' && typeof ev.recurrenceWeekday === 'number') {
+      const weekday = clamp(Number(ev.recurrenceWeekday), 0, 6);
+      const delta = (weekday - start.getDay() + 7) % 7;
+      start = addDays(start, delta);
+    }
+
+    if (start.getTime() >= now.getTime()) return start;
+
+    if (unit === 'day' || unit === 'week') {
+      const stepDays = interval * (unit === 'week' ? 7 : 1);
+      const approxSteps = Math.floor((now.getTime() - start.getTime()) / (stepDays * 24 * 60 * 60 * 1000));
+      let candidate = approxSteps > 0 ? addDays(start, approxSteps * stepDays) : new Date(start);
+      while (candidate.getTime() < now.getTime()) candidate = addDays(candidate, stepDays);
+      return candidate;
+    }
+
+    if (unit === 'month') {
+      const diffMonths = Math.max(0, monthIndex(now) - monthIndex(start));
+      const approxMonths = Math.floor(diffMonths / interval) * interval;
+      let candidate = monthOccurrenceFromBase(approxMonths);
+      if (candidate.getTime() < start.getTime()) candidate = new Date(start);
+      while (candidate.getTime() < now.getTime()) {
+        const monthsFromBase = monthIndex(candidate) - monthIndex(base);
+        candidate = monthOccurrenceFromBase(monthsFromBase + interval);
+      }
+      return candidate;
+    }
+
+    // unit === 'year'
+    const diffYears = Math.max(0, now.getFullYear() - start.getFullYear());
+    const approxYears = Math.floor(diffYears / interval) * interval;
+    let candidate = yearOccurrenceFromBase(approxYears);
+    if (candidate.getTime() < start.getTime()) candidate = new Date(start);
+    while (candidate.getTime() < now.getTime()) {
+      const yearsFromBase = candidate.getFullYear() - base.getFullYear();
+      candidate = yearOccurrenceFromBase(yearsFromBase + interval);
+    }
+    return candidate;
+  }
 
   // Legacy modes + weekly with explicit weekday
   if (recurrence === 'yearly' || recurrence === 'monthly' || recurrence === 'weekly' || recurrence === 'daily') {
@@ -537,6 +625,8 @@ function renderDetails(): void {
     detailRecurrence.value = 'monthly';
   } else if (internal === 'yearly_nth_weekday') {
     detailRecurrence.value = 'yearly';
+  } else if (internal === 'interval') {
+    detailRecurrence.value = 'interval';
   } else {
     detailRecurrence.value = internal;
   }
@@ -552,16 +642,21 @@ function renderDetails(): void {
 }
 
 let lastUiRecurrenceValue: string = 'none';
-let modalMode: 'weekly' | 'monthly' | 'yearly' | null = null;
+let modalMode: 'interval' | 'weekly' | 'monthly' | 'yearly' | null = null;
 
-function setModalMode(mode: 'weekly' | 'monthly' | 'yearly'): void {
+function setModalMode(mode: 'interval' | 'weekly' | 'monthly' | 'yearly'): void {
   modalMode = mode;
+  recurIntervalPane.classList.toggle('hidden', mode !== 'interval');
   recurWeeklyPane.classList.toggle('hidden', mode !== 'weekly');
   recurMonthlyPane.classList.toggle('hidden', mode !== 'monthly');
   recurYearlyPane.classList.toggle('hidden', mode !== 'yearly');
 }
 
-function showRecurrenceModal(mode: 'weekly' | 'monthly' | 'yearly', e: CountdownEvent): void {
+function syncIntervalModeUI(): void {
+  recurIntervalWeekdayRow.classList.toggle('hidden', recurIntervalUnit.value !== 'week');
+}
+
+function showRecurrenceModal(mode: 'interval' | 'weekly' | 'monthly' | 'yearly', e: CountdownEvent): void {
   setModalMode(mode);
   const base = new Date(e.dateLocal);
 
@@ -576,6 +671,14 @@ function showRecurrenceModal(mode: 'weekly' | 'monthly' | 'yearly', e: Countdown
   recurMonthlyLabelNth.textContent = `Monthly on the ${baseWeekLabel} ${baseWeekdayName}`;
   recurYearlyLabelDate.textContent = `Yearly on ${baseMonthName} ${ordinal(baseDay)}`;
   recurYearlyLabelNth.textContent = `Yearly on the ${baseWeekLabel} ${baseWeekdayName} of ${baseMonthName}`;
+
+  if (mode === 'interval') {
+    recurIntervalEvery.value = String(clamp(Number(e.recurrenceInterval ?? 1), 1, 10000));
+    const unitRaw = String(e.recurrenceIntervalUnit ?? 'day');
+    recurIntervalUnit.value = unitRaw === 'day' || unitRaw === 'week' || unitRaw === 'month' || unitRaw === 'year' ? unitRaw : 'day';
+    recurIntervalWeekday.value = String(clamp(Number(e.recurrenceWeekday ?? base.getDay()), 0, 6));
+    syncIntervalModeUI();
+  }
 
   if (mode === 'weekly') {
     recurWeeklyWeekday.value = String(clamp(Number(e.recurrenceWeekday ?? base.getDay()), 0, 6));
@@ -666,6 +769,8 @@ addNewBtn.addEventListener('click', () => {
     dateLocal: defaultDateLocal(),
     timezone: 'local',
     recurrence: 'none',
+    recurrenceInterval: 1,
+    recurrenceIntervalUnit: 'day',
     recurrenceDayOfMonth: base.getDate(),
     recurrenceMonth: base.getMonth(),
     recurrenceWeekOfMonth: weekOfMonthForDate(base),
@@ -714,6 +819,11 @@ detailRecurrence.addEventListener('change', () => {
     return;
   }
 
+  if (nextUi === 'interval') {
+    showRecurrenceModal('interval', e);
+    return;
+  }
+
   // Weekly/monthly/yearly require configuration in modal.
   showRecurrenceModal(nextUi as 'weekly' | 'monthly' | 'yearly', e);
 });
@@ -735,6 +845,8 @@ document.querySelectorAll('input[name="recurYearlyMode"]').forEach((el) => {
   el.addEventListener('change', () => syncYearlyModeUI());
 });
 
+recurIntervalUnit.addEventListener('change', () => syncIntervalModeUI());
+
 recurApply.addEventListener('click', () => {
   const e = getSelectedEvent();
   if (!e || !modalMode) {
@@ -750,6 +862,30 @@ recurApply.addEventListener('click', () => {
     d.setHours(base.getHours(), base.getMinutes(), 0, 0);
     return d;
   };
+
+  if (modalMode === 'interval') {
+    const every = clamp(Number(recurIntervalEvery.value), 1, 10000);
+    const unitRaw = recurIntervalUnit.value;
+    const unit = unitRaw === 'day' || unitRaw === 'week' || unitRaw === 'month' || unitRaw === 'year' ? unitRaw : 'day';
+
+    patch.recurrence = 'interval';
+    patch.recurrenceInterval = every;
+    patch.recurrenceIntervalUnit = unit;
+
+    // Clear legacy fields that can conflict with UI expectations.
+    patch.recurrenceMonth = undefined;
+    patch.recurrenceDayOfMonth = undefined;
+    patch.recurrenceWeekOfMonth = undefined;
+
+    if (unit === 'week') {
+      patch.recurrenceWeekday = clamp(Number(recurIntervalWeekday.value), 0, 6);
+    } else {
+      patch.recurrenceWeekday = undefined;
+    }
+
+    const next = nextOccurrenceForEvent({ ...e, ...patch, dateLocal: toDateTimeLocalString(withTime(new Date(base))) } as CountdownEvent);
+    patch.dateLocal = toDateTimeLocalString(next);
+  }
 
   if (modalMode === 'weekly') {
     const weekday = clamp(Number(recurWeeklyWeekday.value), 0, 6);

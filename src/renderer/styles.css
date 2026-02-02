@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Kaushan+Script&display=swap');
 
 :root{
   color-scheme: light;
@@ -39,6 +39,11 @@ body{
   color: var(--muted);
   user-select: none;
   pointer-events: none;
+}
+
+.prefsCredit strong{
+  font-family: 'Kaushan Script', cursive;
+  font-weight: 400;
 }
 
 .prefsTop{
