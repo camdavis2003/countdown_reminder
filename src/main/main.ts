@@ -23,6 +23,7 @@ export type CountdownEvent = {
   textColor: string;
   timezone: 'local';
   recurrence: Recurrence;
+  completedThroughLocal?: string;
   recurrenceInterval?: number;
   recurrenceIntervalUnit?: IntervalUnit;
   recurrenceDayOfMonth?: number;
@@ -381,6 +382,13 @@ function migrateIfNeeded() {
 
     if (typeof next.pinned !== 'boolean') {
       next = { ...next, pinned: false };
+    }
+
+    // Completion checkpoint (used by widget to keep overdue recurring events red until user marks done).
+    if (typeof next.completedThroughLocal !== 'string') {
+      // Drop invalid values.
+      const { completedThroughLocal: _drop, ...rest } = next;
+      next = rest;
     }
 
     return next as CountdownEvent;

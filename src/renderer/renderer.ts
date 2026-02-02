@@ -804,7 +804,7 @@ detailTitle.addEventListener('input', () => {
   updateSelected({ title: detailTitle.value });
 });
 detailDate.addEventListener('change', () => {
-  updateSelected({ dateLocal: detailDate.value });
+  updateSelected({ dateLocal: detailDate.value, completedThroughLocal: undefined });
 });
 
 detailRecurrence.addEventListener('change', () => {
@@ -813,7 +813,7 @@ detailRecurrence.addEventListener('change', () => {
 
   const nextUi = detailRecurrence.value;
   if (nextUi === 'none' || nextUi === 'daily') {
-    updateSelected({ recurrence: nextUi });
+    updateSelected({ recurrence: nextUi, completedThroughLocal: undefined });
     lastUiRecurrenceValue = nextUi;
     renderDetails();
     return;

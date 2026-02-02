@@ -524,6 +524,34 @@ body.widget{
   gap: 10px;
 }
 
+.widgetItemActions{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+}
+
+.widgetItemDoneBtn{
+  -webkit-app-region: no-drag;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.22);
+  border-color: color-mix(in srgb, currentColor 22%, transparent);
+  background: rgba(255,255,255,.14);
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  color: inherit;
+  cursor: pointer;
+  font-weight: 750;
+  font-size: 12px;
+  letter-spacing: .2px;
+}
+
+.widgetItemDoneBtn:hover{
+  background: rgba(255,255,255,.22);
+  background: color-mix(in srgb, currentColor 22%, transparent);
+}
+
 .widgetItemMenuBtn{
   -webkit-app-region: no-drag;
   width: 30px;

@@ -19,6 +19,7 @@ export type CountdownEvent = {
   textColor: string;
   timezone: 'local';
   recurrence: Recurrence;
+  completedThroughLocal?: string;
   recurrenceInterval?: number;
   recurrenceIntervalUnit?: IntervalUnit;
   recurrenceDayOfMonth?: number;

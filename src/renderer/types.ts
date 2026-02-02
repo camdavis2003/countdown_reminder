@@ -19,6 +19,8 @@ export type CountdownEvent = {
   textColor: string;
   timezone: 'local';
   recurrence: Recurrence;
+  /** When set, the widget treats occurrences <= this time as completed and shows the next one. */
+  completedThroughLocal?: string;
   /** Used when recurrence is 'interval' */
   recurrenceInterval?: number; // >= 1
   /** Used when recurrence is 'interval' */
