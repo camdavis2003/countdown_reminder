@@ -391,12 +391,14 @@ function migrateIfNeeded() {
 }
 
 function createMainWindow() {
+  const iconPath = path.join(app.getAppPath(), 'assets', 'icon.png');
   const win = new BrowserWindow({
     width: 960,
     height: 568,
     minWidth: 860,
     minHeight: 540,
     title: 'Countdown Reminder',
+    icon: iconPath,
     show: false,
     autoHideMenuBar: true,
     frame: false,

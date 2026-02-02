@@ -57,6 +57,7 @@
     ],
     "extraResources": [],
     "win": {
+      "icon": "assets/icon.png",
       "target": [
         {
           "target": "nsis",
@@ -67,6 +68,9 @@
       ]
     },
     "nsis": {
+      "installerIcon": "assets/icon.png",
+      "uninstallerIcon": "assets/icon.png",
+      "installerHeaderIcon": "assets/icon.png",
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true
