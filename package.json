@@ -1,7 +1,7 @@
 {
   "name": "countdown-reminder",
   "productName": "Countdown Reminder",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Countdown Reminder - countdowns and reminders for special dates",
   "main": "dist/main/main.js",
   "author": "",
@@ -20,6 +20,8 @@
     "dist": "npm run dist:win",
     "dist:win": "npm run builder:clean-output && npm run build && cross-env ELECTRON_BUILDER_CACHE=.cache/electron-builder electron-builder --win --x64",
     "dist:debug": "npm run builder:clean-output && npm run build && cross-env DEBUG=electron-builder,electron-builder:* ELECTRON_BUILDER_CACHE=.cache/electron-builder electron-builder --win --x64 --publish=never",
+    "icons:win": "node scripts/generate-icon-ico.mjs",
+    "release:win": "npm run icons:win && npm version patch --no-git-tag-version && npm run dist:win",
     "builder:clear-cache": "node scripts/clear-builder-cache.mjs",
     "builder:clean-output": "node scripts/clean-release.mjs",
     "lint": "eslint ."
@@ -38,6 +40,8 @@
     "electron": "^32.2.2",
     "electron-builder": "^26.7.0",
     "eslint": "^9.17.0",
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.33.5",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vite": "^6.0.5",
@@ -57,7 +61,7 @@
     ],
     "extraResources": [],
     "win": {
-      "icon": "assets/icon.png",
+      "icon": "assets/icon.ico",
       "target": [
         {
           "target": "nsis",
@@ -68,9 +72,10 @@
       ]
     },
     "nsis": {
-      "installerIcon": "assets/icon.png",
-      "uninstallerIcon": "assets/icon.png",
-      "installerHeaderIcon": "assets/icon.png",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "createDesktopShortcut": true,
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true
