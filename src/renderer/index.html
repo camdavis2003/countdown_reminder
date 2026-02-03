@@ -56,14 +56,21 @@
                 <label class="formLabel" for="detailRecurrence"
                   >Recurrence</label
                 >
-                <select id="detailRecurrence">
-                  <option value="none" selected>None</option>
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                  <option value="yearly">Yearly</option>
-                  <option value="interval">Custom (Every X…)</option>
-                </select>
+                <div class="fieldStack">
+                  <select id="detailRecurrence">
+                    <option value="none" selected>None</option>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="yearly">Yearly</option>
+                    <option value="interval">Custom (Every X…)</option>
+                  </select>
+                  <div
+                    id="detailRecurrenceSummary"
+                    class="formHelp"
+                    aria-live="polite"
+                  ></div>
+                </div>
               </div>
 
               <label class="checkRow">

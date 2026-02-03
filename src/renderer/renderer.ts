@@ -45,6 +45,7 @@ const deleteBtn = qs<HTMLButtonElement>('#deleteEvent');
 const detailTitle = qs<HTMLInputElement>('#detailTitle');
 const detailDate = qs<HTMLInputElement>('#detailDate');
 const detailRecurrence = qs<HTMLSelectElement>('#detailRecurrence');
+const detailRecurrenceSummary = qs<HTMLDivElement>('#detailRecurrenceSummary');
 const detailPinned = qs<HTMLInputElement>('#detailPinned');
 const detailBgBtn = qs<HTMLButtonElement>('#detailBgBtn');
 const detailBgSwatch = qs<HTMLSpanElement>('#detailBgSwatch');
@@ -127,6 +128,81 @@ function weekLabelForDate(d: Date): string {
   const isLast = next.getMonth() !== d.getMonth() || next.getFullYear() !== d.getFullYear();
   if (isLast) return 'Last';
   return ordinal(weekOfMonthForDate(d));
+}
+
+function pluralize(n: number, singular: string): string {
+  return Math.abs(n) === 1 ? singular : `${singular}s`;
+}
+
+function recurrenceSummary(e: CountdownEvent): string {
+  const r = e.recurrence ?? 'none';
+  if (r === 'none') return '';
+
+  if (r === 'daily') return 'Recurs daily.';
+
+  if (r === 'weekly') {
+    if (typeof e.recurrenceWeekday === 'number') {
+      const wd = WEEKDAY_NAMES[clamp(Number(e.recurrenceWeekday), 0, 6)];
+      return `Recurs weekly on ${wd}.`;
+    }
+    return 'Recurs weekly.';
+  }
+
+  if (r === 'interval') {
+    const rawInterval = Number(e.recurrenceInterval ?? 1);
+    const every = clamp(Number.isFinite(rawInterval) ? Math.trunc(rawInterval) : 1, 1, 10000);
+    const unitRaw = String(e.recurrenceIntervalUnit ?? 'day');
+    const unit = unitRaw === 'day' || unitRaw === 'week' || unitRaw === 'month' || unitRaw === 'year' ? unitRaw : 'day';
+    const unitLabel = pluralize(every, unit);
+    let tail = '';
+    if (unit === 'week' && typeof e.recurrenceWeekday === 'number') {
+      const wd = WEEKDAY_NAMES[clamp(Number(e.recurrenceWeekday), 0, 6)];
+      tail = ` on ${wd}`;
+    }
+    return `Recurs every ${every} ${unitLabel}${tail}.`;
+  }
+
+  if (r === 'monthly_day_of_month') {
+    const day = clamp(Number(e.recurrenceDayOfMonth ?? new Date(e.dateLocal).getDate()), 1, 31);
+    return `Recurs monthly on the ${ordinal(day)}.`;
+  }
+
+  if (r === 'monthly_nth_weekday') {
+    const nth = clamp(Number(e.recurrenceWeekOfMonth ?? weekOfMonthForDate(new Date(e.dateLocal))), 1, 5);
+    const nthLabel = nth === 5 ? 'Last' : ordinal(nth);
+    const wd = WEEKDAY_NAMES[clamp(Number(e.recurrenceWeekday ?? new Date(e.dateLocal).getDay()), 0, 6)];
+    return `Recurs monthly on the ${nthLabel} ${wd}.`;
+  }
+
+  if (r === 'monthly') {
+    const base = new Date(e.dateLocal);
+    return `Recurs monthly on the ${ordinal(base.getDate())}.`;
+  }
+
+  if (r === 'yearly') {
+    const base = new Date(e.dateLocal);
+    const month = clamp(Number(e.recurrenceMonth ?? base.getMonth()), 0, 11);
+    const desiredDay = clamp(Number(e.recurrenceDayOfMonth ?? base.getDate()), 1, 31);
+    const monthName = MONTH_NAMES[month];
+    return `Recurs yearly on ${monthName} ${ordinal(desiredDay)}.`;
+  }
+
+  if (r === 'yearly_nth_weekday') {
+    const base = new Date(e.dateLocal);
+    const month = clamp(Number(e.recurrenceMonth ?? base.getMonth()), 0, 11);
+    const nth = clamp(Number(e.recurrenceWeekOfMonth ?? weekOfMonthForDate(base)), 1, 5);
+    const nthLabel = nth === 5 ? 'Last' : ordinal(nth);
+    const wd = WEEKDAY_NAMES[clamp(Number(e.recurrenceWeekday ?? base.getDay()), 0, 6)];
+    const monthName = MONTH_NAMES[month];
+    return `Recurs yearly on the ${nthLabel} ${wd} of ${monthName}.`;
+  }
+
+  return '';
+}
+
+function renderRecurrenceSummary(): void {
+  const e = getSelectedEvent();
+  detailRecurrenceSummary.textContent = e ? recurrenceSummary(e) : '';
 }
 
 const colorPicker = qs<HTMLDivElement>('#colorPicker');
@@ -614,6 +690,7 @@ function renderDetails(): void {
     detailBgText.textContent = '#4F46E5';
     detailTextSwatch.style.background = '#FFFFFF';
     detailTextText.textContent = '#FFFFFF';
+    detailRecurrenceSummary.textContent = '';
     return;
   }
 
@@ -639,6 +716,8 @@ function renderDetails(): void {
   detailBgText.textContent = formatColorLabel(bg);
   detailTextSwatch.style.background = fg;
   detailTextText.textContent = formatColorLabel(fg);
+
+  renderRecurrenceSummary();
 }
 
 let lastUiRecurrenceValue: string = 'none';
@@ -740,6 +819,7 @@ function updateSelected(patch: Partial<CountdownEvent>): void {
 
   scheduleSave();
   renderList();
+  renderRecurrenceSummary();
 }
 
 async function refreshState(): Promise<void> {
@@ -748,6 +828,7 @@ async function refreshState(): Promise<void> {
   ensureSelection();
   renderList();
   renderDetails();
+  renderRecurrenceSummary();
 }
 
 closePrefsBtn.addEventListener('click', () => {

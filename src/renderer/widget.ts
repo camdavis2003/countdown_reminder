@@ -297,7 +297,7 @@ function renderGroup(events: CountdownEvent[]) {
     card.style.setProperty('--event-fg', fg);
     card.dataset.eventId = ev0.id;
 
-    const showDone = isPast && ev0.recurrence !== 'none';
+    const showDone = isPast;
 
     card.innerHTML = `
       <div class="widgetItemDays">
@@ -322,7 +322,11 @@ function renderGroup(events: CountdownEvent[]) {
     doneBtn?.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
-      await markEventDone(ev0.id);
+      if (ev0.recurrence === 'none') {
+        await window.countdown.deleteEvent(ev0.id);
+      } else {
+        await markEventDone(ev0.id);
+      }
       await refresh();
     });
 

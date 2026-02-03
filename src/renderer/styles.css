@@ -201,6 +201,17 @@ body{
   margin-bottom: 10px;
 }
 
+.fieldStack{
+  display: grid;
+  gap: 4px;
+}
+
+.formHelp{
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--muted);
+}
+
 .inlineRow{
   display:flex;
   gap: 10px;

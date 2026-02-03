@@ -1,7 +1,7 @@
 {
   "name": "countdown-reminder",
   "productName": "Countdown Reminder",
-  "version": "0.1.1",
+  "version": "0.1.3",
   "description": "Countdown Reminder - countdowns and reminders for special dates",
   "main": "dist/main/main.js",
   "author": "",
