@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Kaushan+Script&display=swap');
 
 :root{
   color-scheme: light;
@@ -39,6 +39,11 @@ body{
   color: var(--muted);
   user-select: none;
   pointer-events: none;
+}
+
+.prefsCredit strong{
+  font-family: 'Kaushan Script', cursive;
+  font-weight: 400;
 }
 
 .prefsTop{
@@ -194,6 +199,17 @@ body{
   align-items:center;
   gap: 10px;
   margin-bottom: 10px;
+}
+
+.fieldStack{
+  display: grid;
+  gap: 4px;
+}
+
+.formHelp{
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--muted);
 }
 
 .inlineRow{
@@ -517,6 +533,34 @@ body.widget{
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+.widgetItemActions{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+}
+
+.widgetItemDoneBtn{
+  -webkit-app-region: no-drag;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.22);
+  border-color: color-mix(in srgb, currentColor 22%, transparent);
+  background: rgba(255,255,255,.14);
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  color: inherit;
+  cursor: pointer;
+  font-weight: 750;
+  font-size: 12px;
+  letter-spacing: .2px;
+}
+
+.widgetItemDoneBtn:hover{
+  background: rgba(255,255,255,.22);
+  background: color-mix(in srgb, currentColor 22%, transparent);
 }
 
 .widgetItemMenuBtn{

@@ -4,6 +4,7 @@ import Store from 'electron-store';
 
 type Recurrence =
   | 'none'
+  | 'interval'
   | 'yearly'
   | 'yearly_nth_weekday'
   | 'monthly'
@@ -11,6 +12,8 @@ type Recurrence =
   | 'daily'
   | 'monthly_day_of_month'
   | 'monthly_nth_weekday';
+
+type IntervalUnit = 'day' | 'week' | 'month' | 'year';
 
 export type CountdownEvent = {
   id: string;
@@ -20,6 +23,9 @@ export type CountdownEvent = {
   textColor: string;
   timezone: 'local';
   recurrence: Recurrence;
+  completedThroughLocal?: string;
+  recurrenceInterval?: number;
+  recurrenceIntervalUnit?: IntervalUnit;
   recurrenceDayOfMonth?: number;
   recurrenceMonth?: number;
   recurrenceWeekOfMonth?: number;
@@ -136,6 +142,81 @@ function nextOccurrenceDate(ev: CountdownEvent) {
   const recurrence = ev.recurrence;
   const d = new Date(base);
 
+  if (recurrence === 'interval') {
+    const rawInterval = Number(ev.recurrenceInterval ?? 1);
+    const interval = clamp(Number.isFinite(rawInterval) ? Math.trunc(rawInterval) : 1, 1, 10000);
+    const unitRaw = String(ev.recurrenceIntervalUnit ?? 'day');
+    const unit: IntervalUnit = (unitRaw === 'day' || unitRaw === 'week' || unitRaw === 'month' || unitRaw === 'year') ? (unitRaw as IntervalUnit) : 'day';
+
+    const baseHours = base.getHours();
+    const baseMinutes = base.getMinutes();
+    const baseDayOfMonth = base.getDate();
+    const baseMonthIndex = base.getMonth();
+
+    const addDays = (dt: Date, days: number) => {
+      const out = new Date(dt);
+      out.setDate(out.getDate() + days);
+      return out;
+    };
+    const monthIndex = (dt: Date) => dt.getFullYear() * 12 + dt.getMonth();
+    const monthOccurrenceFromBase = (monthsToAdd: number) => {
+      const startMonthIndex = base.getFullYear() * 12 + base.getMonth();
+      const targetMonthIndex = startMonthIndex + monthsToAdd;
+      const y = Math.floor(targetMonthIndex / 12);
+      const m = targetMonthIndex % 12;
+      const last = daysInMonth(y, m);
+      const day = Math.min(baseDayOfMonth, last);
+      return new Date(y, m, day, baseHours, baseMinutes, 0, 0);
+    };
+    const yearOccurrenceFromBase = (yearsToAdd: number) => {
+      const y = base.getFullYear() + yearsToAdd;
+      const m = baseMonthIndex;
+      const last = daysInMonth(y, m);
+      const day = Math.min(baseDayOfMonth, last);
+      return new Date(y, m, day, baseHours, baseMinutes, 0, 0);
+    };
+
+    let start = new Date(base);
+    start.setHours(baseHours, baseMinutes, 0, 0);
+
+    if (unit === 'week' && typeof ev.recurrenceWeekday === 'number') {
+      const weekday = clamp(Number(ev.recurrenceWeekday), 0, 6);
+      const delta = (weekday - start.getDay() + 7) % 7;
+      start = addDays(start, delta);
+    }
+
+    let candidate: Date;
+    if (start.getTime() >= now.getTime()) {
+      candidate = start;
+    } else if (unit === 'day' || unit === 'week') {
+      const stepDays = interval * (unit === 'week' ? 7 : 1);
+      const approxSteps = Math.floor((now.getTime() - start.getTime()) / (stepDays * 24 * 60 * 60 * 1000));
+      candidate = approxSteps > 0 ? addDays(start, approxSteps * stepDays) : new Date(start);
+      while (candidate.getTime() < now.getTime()) candidate = addDays(candidate, stepDays);
+    } else if (unit === 'month') {
+      const diffMonths = Math.max(0, monthIndex(now) - monthIndex(start));
+      const approxMonths = Math.floor(diffMonths / interval) * interval;
+      candidate = monthOccurrenceFromBase(approxMonths);
+      if (candidate.getTime() < start.getTime()) candidate = new Date(start);
+      while (candidate.getTime() < now.getTime()) {
+        const monthsFromBase = monthIndex(candidate) - monthIndex(base);
+        candidate = monthOccurrenceFromBase(monthsFromBase + interval);
+      }
+    } else {
+      const diffYears = Math.max(0, now.getFullYear() - start.getFullYear());
+      const approxYears = Math.floor(diffYears / interval) * interval;
+      candidate = yearOccurrenceFromBase(approxYears);
+      if (candidate.getTime() < start.getTime()) candidate = new Date(start);
+      while (candidate.getTime() < now.getTime()) {
+        const yearsFromBase = candidate.getFullYear() - base.getFullYear();
+        candidate = yearOccurrenceFromBase(yearsFromBase + interval);
+      }
+    }
+
+    d.setTime(candidate.getTime());
+    return d;
+  }
+
   if (recurrence === 'yearly' || recurrence === 'monthly' || recurrence === 'weekly' || recurrence === 'daily') {
     if (recurrence === 'weekly' && typeof ev.recurrenceWeekday === 'number') {
       if (d.getTime() >= now.getTime()) return d;
@@ -248,6 +329,7 @@ function migrateIfNeeded() {
       'weekly',
       'monthly',
       'yearly',
+      'interval',
       'monthly_day_of_month',
       'monthly_nth_weekday',
       'yearly_nth_weekday'
@@ -259,6 +341,16 @@ function migrateIfNeeded() {
     // New recurrence fields (derive from dateLocal when needed)
     try {
       const d = typeof next.dateLocal === 'string' ? parseLocalDate(next.dateLocal) : new Date();
+      if (next.recurrence === 'interval') {
+        const n = Number(next.recurrenceInterval);
+        if (!Number.isFinite(n) || n < 1) next = { ...next, recurrenceInterval: 1 };
+        const unit = String(next.recurrenceIntervalUnit ?? 'day');
+        const ok = unit === 'day' || unit === 'week' || unit === 'month' || unit === 'year';
+        if (!ok) next = { ...next, recurrenceIntervalUnit: 'day' };
+        if (String(next.recurrenceIntervalUnit) === 'week' && typeof next.recurrenceWeekday !== 'number') {
+          next = { ...next, recurrenceWeekday: d.getDay() };
+        }
+      }
       if (typeof next.recurrenceMonth !== 'number') {
         next = { ...next, recurrenceMonth: d.getMonth() };
       }
@@ -292,6 +384,13 @@ function migrateIfNeeded() {
       next = { ...next, pinned: false };
     }
 
+    // Completion checkpoint (used by widget to keep overdue recurring events red until user marks done).
+    if (typeof next.completedThroughLocal !== 'string') {
+      // Drop invalid values.
+      const { completedThroughLocal: _drop, ...rest } = next;
+      next = rest;
+    }
+
     return next as CountdownEvent;
   });
   if (JSON.stringify(migrated) !== JSON.stringify(st.events)) {
@@ -300,12 +399,14 @@ function migrateIfNeeded() {
 }
 
 function createMainWindow() {
+  const iconPath = path.join(app.getAppPath(), 'assets', 'icon.png');
   const win = new BrowserWindow({
     width: 960,
     height: 568,
     minWidth: 860,
     minHeight: 540,
     title: 'Countdown Reminder',
+    icon: iconPath,
     show: false,
     autoHideMenuBar: true,
     frame: false,

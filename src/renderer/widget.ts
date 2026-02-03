@@ -36,9 +36,13 @@ function nthWeekdayDayOfMonth(year: number, monthIndex: number, weekday: number,
   return firstOccurrence + weeksAvailable * 7;
 }
 
+function toDateTimeLocalString(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 function eventSortKey(ev: CountdownEvent) {
-  const next = nextOccurrence(ev);
-  const ms = new Date(next.dateLocal).getTime();
+  const ms = new Date(dueOccurrenceLocal(ev)).getTime();
   return { pinned: !!ev.pinned, time: ms };
 }
 
@@ -66,13 +70,88 @@ function formatShortDateLabel(iso: string) {
   });
 }
 
-function nextOccurrence(ev: CountdownEvent): CountdownEvent {
+function nextOccurrence(ev: CountdownEvent, now: Date = new Date()): CountdownEvent {
   if (ev.recurrence === 'none') return ev;
   const base = new Date(ev.dateLocal);
-  const now = new Date();
 
   const recurrence = ev.recurrence;
   const d = new Date(base);
+
+  if (recurrence === 'interval') {
+    const rawInterval = Number(ev.recurrenceInterval ?? 1);
+    const interval = clamp(Number.isFinite(rawInterval) ? Math.trunc(rawInterval) : 1, 1, 10000);
+    const unitRaw = String(ev.recurrenceIntervalUnit ?? 'day');
+    const unit = unitRaw === 'day' || unitRaw === 'week' || unitRaw === 'month' || unitRaw === 'year' ? unitRaw : 'day';
+
+    const baseHours = base.getHours();
+    const baseMinutes = base.getMinutes();
+    const baseDayOfMonth = base.getDate();
+    const baseMonthIndex = base.getMonth();
+
+    const addDays = (dt: Date, days: number) => {
+      const out = new Date(dt);
+      out.setDate(out.getDate() + days);
+      return out;
+    };
+    const monthIndex = (dt: Date) => dt.getFullYear() * 12 + dt.getMonth();
+
+    const monthOccurrenceFromBase = (monthsToAdd: number) => {
+      const startMonthIndex = base.getFullYear() * 12 + base.getMonth();
+      const targetMonthIndex = startMonthIndex + monthsToAdd;
+      const y = Math.floor(targetMonthIndex / 12);
+      const m = targetMonthIndex % 12;
+      const last = daysInMonth(y, m);
+      const day = Math.min(baseDayOfMonth, last);
+      return new Date(y, m, day, baseHours, baseMinutes, 0, 0);
+    };
+
+    const yearOccurrenceFromBase = (yearsToAdd: number) => {
+      const y = base.getFullYear() + yearsToAdd;
+      const m = baseMonthIndex;
+      const last = daysInMonth(y, m);
+      const day = Math.min(baseDayOfMonth, last);
+      return new Date(y, m, day, baseHours, baseMinutes, 0, 0);
+    };
+
+    let start = new Date(base);
+    start.setHours(baseHours, baseMinutes, 0, 0);
+
+    if (unit === 'week' && typeof ev.recurrenceWeekday === 'number') {
+      const weekday = clamp(Number(ev.recurrenceWeekday), 0, 6);
+      const delta = (weekday - start.getDay() + 7) % 7;
+      start = addDays(start, delta);
+    }
+
+    let candidate: Date;
+    if (start.getTime() >= now.getTime()) {
+      candidate = start;
+    } else if (unit === 'day' || unit === 'week') {
+      const stepDays = interval * (unit === 'week' ? 7 : 1);
+      const approxSteps = Math.floor((now.getTime() - start.getTime()) / (stepDays * 24 * 60 * 60 * 1000));
+      candidate = approxSteps > 0 ? addDays(start, approxSteps * stepDays) : new Date(start);
+      while (candidate.getTime() < now.getTime()) candidate = addDays(candidate, stepDays);
+    } else if (unit === 'month') {
+      const diffMonths = Math.max(0, monthIndex(now) - monthIndex(start));
+      const approxMonths = Math.floor(diffMonths / interval) * interval;
+      candidate = monthOccurrenceFromBase(approxMonths);
+      if (candidate.getTime() < start.getTime()) candidate = new Date(start);
+      while (candidate.getTime() < now.getTime()) {
+        const monthsFromBase = monthIndex(candidate) - monthIndex(base);
+        candidate = monthOccurrenceFromBase(monthsFromBase + interval);
+      }
+    } else {
+      const diffYears = Math.max(0, now.getFullYear() - start.getFullYear());
+      const approxYears = Math.floor(diffYears / interval) * interval;
+      candidate = yearOccurrenceFromBase(approxYears);
+      if (candidate.getTime() < start.getTime()) candidate = new Date(start);
+      while (candidate.getTime() < now.getTime()) {
+        const yearsFromBase = candidate.getFullYear() - base.getFullYear();
+        candidate = yearOccurrenceFromBase(yearsFromBase + interval);
+      }
+    }
+
+    d.setTime(candidate.getTime());
+  } else
 
   if (recurrence === 'yearly' || recurrence === 'monthly' || recurrence === 'weekly' || recurrence === 'daily') {
     if (recurrence === 'weekly' && typeof ev.recurrenceWeekday === 'number') {
@@ -166,14 +245,37 @@ function nextOccurrence(ev: CountdownEvent): CountdownEvent {
   return { ...ev, dateLocal: `${yyyy}-${mm}-${dd}T${hh}:${min}` };
 }
 
+function dueOccurrenceLocal(ev: CountdownEvent): string {
+  if (ev.recurrence === 'none') return ev.dateLocal;
+
+  // If the user hasn't marked this recurring event done yet, keep the original occurrence.
+  if (!ev.completedThroughLocal) return ev.dateLocal;
+
+  // Otherwise, show the next occurrence after the completion checkpoint.
+  const from = new Date(ev.completedThroughLocal);
+  const after = new Date(from.getTime() + 1);
+  return nextOccurrence(ev, after).dateLocal;
+}
+
+async function markEventDone(eventId: string) {
+  const st: AppState = await window.countdown.getState();
+  const idx = st.events.findIndex((e) => e.id === eventId);
+  if (idx < 0) return;
+
+  const nowLocal = toDateTimeLocalString(new Date());
+  const nextEvents = st.events.slice();
+  nextEvents[idx] = { ...nextEvents[idx], completedThroughLocal: nowLocal };
+  await window.countdown.saveEvents(nextEvents);
+}
+
 function renderGroup(events: CountdownEvent[]) {
   const el = document.getElementById('widget') as HTMLDivElement;
   el.innerHTML = '';
   el.classList.add('widgetGroup');
 
   for (const ev0 of events) {
-    const ev = nextOccurrence(ev0);
-    const { ms, days } = diffParts(ev.dateLocal);
+    const dueLocal = dueOccurrenceLocal(ev0);
+    const { ms, days } = diffParts(dueLocal);
     const isPast = ms <= 0;
     const isWithin24h = ms > 0 && ms <= 24 * 60 * 60 * 1000;
     const daysText = isPast ? 'Now' : String(days);
@@ -195,6 +297,8 @@ function renderGroup(events: CountdownEvent[]) {
     card.style.setProperty('--event-fg', fg);
     card.dataset.eventId = ev0.id;
 
+    const showDone = isPast;
+
     card.innerHTML = `
       <div class="widgetItemDays">
         <div class="widgetItemDaysInner">
@@ -204,12 +308,27 @@ function renderGroup(events: CountdownEvent[]) {
       </div>
       <div class="widgetItemInfo">
         <div class="widgetItemTitleRow">
-          <div class="widgetItemTitle">${escapeHtml(ev.title)}</div>
-          <button class="widgetItemMenuBtn" type="button" aria-label="Menu">⋯</button>
+          <div class="widgetItemTitle">${escapeHtml(ev0.title)}</div>
+          <div class="widgetItemActions">
+            ${showDone ? '<button class="widgetItemDoneBtn" type="button">Done</button>' : ''}
+            <button class="widgetItemMenuBtn" type="button" aria-label="Menu">⋯</button>
+          </div>
         </div>
-        <div class="widgetItemDate">${escapeHtml(formatShortDateLabel(ev.dateLocal))}</div>
+        <div class="widgetItemDate">${escapeHtml(formatShortDateLabel(dueLocal))}</div>
       </div>
     `;
+
+    const doneBtn = card.querySelector('.widgetItemDoneBtn') as HTMLButtonElement | null;
+    doneBtn?.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (ev0.recurrence === 'none') {
+        await window.countdown.deleteEvent(ev0.id);
+      } else {
+        await markEventDone(ev0.id);
+      }
+      await refresh();
+    });
 
     const menuBtn = card.querySelector('.widgetItemMenuBtn') as HTMLButtonElement | null;
     menuBtn?.addEventListener('click', (e) => {
