@@ -32,6 +32,39 @@ function escapeHtml(s: string): string {
     .replaceAll("'", '&#039;');
 }
 
+function applySpaceTriggeredReplacements(ev: KeyboardEvent): void {
+  if (ev.key !== ' ') return;
+  if (ev.defaultPrevented) return;
+
+  const target = ev.target as unknown;
+  if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) return;
+  if (target instanceof HTMLInputElement) {
+    const type = (target.getAttribute('type') ?? 'text').toLowerCase();
+    if (type !== 'text' && type !== 'search' && type !== 'url' && type !== 'email' && type !== 'tel') return;
+  }
+  if (target.readOnly || target.disabled) return;
+
+  const start = target.selectionStart;
+  const end = target.selectionEnd;
+  if (start == null || end == null) return;
+  if (start !== end) return;
+  if (start < 2) return;
+
+  const value = target.value;
+  const lastTwo = value.slice(start - 2, start);
+  const replacement = lastTwo === '->' ? '🡪' : lastTwo === '=>' ? '⇒' : null;
+  if (!replacement) return;
+
+  ev.preventDefault();
+  const nextValue = value.slice(0, start - 2) + replacement + ' ' + value.slice(start);
+  target.value = nextValue;
+  const nextPos = start - 2 + replacement.length + 1;
+  target.setSelectionRange(nextPos, nextPos);
+
+  // Ensure our app state updates the same way as normal typing.
+  target.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 let state: AppState | null = null;
 let selectedId: string | null = null;
 let saveTimer: number | null = null;
@@ -43,6 +76,7 @@ const addNewBtn = qs<HTMLButtonElement>('#addNew');
 const deleteBtn = qs<HTMLButtonElement>('#deleteEvent');
 
 const detailTitle = qs<HTMLInputElement>('#detailTitle');
+const detailLocation = qs<HTMLInputElement>('#detailLocation');
 const detailDate = qs<HTMLInputElement>('#detailDate');
 const detailRecurrence = qs<HTMLSelectElement>('#detailRecurrence');
 const detailRecurrenceSummary = qs<HTMLDivElement>('#detailRecurrenceSummary');
@@ -269,6 +303,7 @@ const AVAILABLE_HEX: string[] = [
 
 function setDisabledForDetails(disabled: boolean): void {
   detailTitle.disabled = disabled;
+  detailLocation.disabled = disabled;
   detailDate.disabled = disabled;
   detailRecurrence.disabled = disabled;
   detailPinned.disabled = disabled;
@@ -683,6 +718,7 @@ function renderDetails(): void {
   if (!e) {
     setDisabledForDetails(true);
     detailTitle.value = '';
+    detailLocation.value = '';
     detailDate.value = '';
     detailRecurrence.value = 'none';
     detailPinned.checked = false;
@@ -696,6 +732,7 @@ function renderDetails(): void {
 
   setDisabledForDetails(false);
   detailTitle.value = e.title;
+  detailLocation.value = e.location ?? '';
   detailDate.value = e.dateLocal;
   const internal = e.recurrence ?? 'none';
   if (internal === 'monthly_day_of_month' || internal === 'monthly_nth_weekday' || internal === 'monthly') {
@@ -835,6 +872,8 @@ closePrefsBtn.addEventListener('click', () => {
   window.close();
 });
 
+document.addEventListener('keydown', applySpaceTriggeredReplacements);
+
 startupToggle.addEventListener('change', async () => {
   await window.countdown.setStartup(startupToggle.checked);
 });
@@ -847,6 +886,7 @@ addNewBtn.addEventListener('click', () => {
   const newEvent: CountdownEvent = {
     id: uid(),
     title: 'New Event',
+    location: '',
     dateLocal: defaultDateLocal(),
     timezone: 'local',
     recurrence: 'none',
@@ -883,6 +923,9 @@ deleteBtn.addEventListener('click', async () => {
 
 detailTitle.addEventListener('input', () => {
   updateSelected({ title: detailTitle.value });
+});
+detailLocation.addEventListener('input', () => {
+  updateSelected({ location: detailLocation.value });
 });
 detailDate.addEventListener('change', () => {
   updateSelected({ dateLocal: detailDate.value, completedThroughLocal: undefined });

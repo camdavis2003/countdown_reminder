@@ -12,6 +12,14 @@ function diffParts(targetISO: string) {
   return { ms, days, hours, minutes };
 }
 
+function calendarDaysBetweenLocalDates(a: Date, b: Date): number {
+  // Difference in calendar days (local date components), ignoring time-of-day.
+  // Uses UTC timestamps of the local date parts to avoid DST skew.
+  const aUtc = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
+  const bUtc = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+  return Math.trunc((bUtc - aUtc) / (24 * 60 * 60 * 1000));
+}
+
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
@@ -275,10 +283,24 @@ function renderGroup(events: CountdownEvent[]) {
 
   for (const ev0 of events) {
     const dueLocal = dueOccurrenceLocal(ev0);
-    const { ms, days } = diffParts(dueLocal);
+    const { ms } = diffParts(dueLocal);
     const isPast = ms <= 0;
     const isWithin24h = ms > 0 && ms <= 24 * 60 * 60 * 1000;
-    const daysText = isPast ? 'Now' : String(days);
+
+    const hoursRemaining = isWithin24h ? Math.max(1, Math.floor(ms / (60 * 60 * 1000))) : 0;
+    const dueDate = new Date(dueLocal);
+    const now = new Date();
+    const daysRemaining = !isPast && !isWithin24h ? Math.max(0, calendarDaysBetweenLocalDates(now, dueDate)) : 0;
+    const valueText = isPast ? 'Now' : isWithin24h ? String(hoursRemaining) : String(daysRemaining);
+    const unitLabel = isPast
+      ? ''
+      : isWithin24h
+        ? hoursRemaining === 1
+          ? 'Hour'
+          : 'Hours'
+        : daysRemaining === 1
+          ? 'Day'
+          : 'Days';
 
     let bg = ev0.color || '#4f46e5';
     let fg = ev0.textColor || '#ffffff';
@@ -298,12 +320,13 @@ function renderGroup(events: CountdownEvent[]) {
     card.dataset.eventId = ev0.id;
 
     const showDone = isPast;
+    const location = (ev0.location ?? '').trim();
 
     card.innerHTML = `
       <div class="widgetItemDays">
         <div class="widgetItemDaysInner">
-          <div class="widgetItemDaysNum ${isPast ? 'due' : ''}">${escapeHtml(daysText)}</div>
-          ${isPast ? '' : '<div class="widgetItemDaysLabel">Days</div>'}
+          <div class="widgetItemDaysNum ${isPast ? 'due' : ''}">${escapeHtml(valueText)}</div>
+          ${isPast ? '' : `<div class="widgetItemDaysLabel">${escapeHtml(unitLabel)}</div>`}
         </div>
       </div>
       <div class="widgetItemInfo">
@@ -315,6 +338,7 @@ function renderGroup(events: CountdownEvent[]) {
           </div>
         </div>
         <div class="widgetItemDate">${escapeHtml(formatShortDateLabel(dueLocal))}</div>
+        ${location ? `<div class="widgetItemLocation">${escapeHtml(location)}</div>` : ''}
       </div>
     `;
 

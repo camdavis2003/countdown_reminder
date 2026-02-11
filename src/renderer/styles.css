@@ -25,16 +25,27 @@ body{
 /* Preferences UI */
 .prefs{
   padding: 14px;
-  height: 100vh;
+  height: 100%;
   display: flex;
   flex-direction: column;
 }
 
+.prefsBody{
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 14px;
+}
+
 .prefsCredit{
-  position: fixed;
-  right: 14px;
-  bottom: 10px;
-  font-size: 12px;
+  flex: 0 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  align-self: stretch;
+  padding: 0 14px;
+  font-size: 14px;
   font-weight: 800;
   color: var(--muted);
   user-select: none;
@@ -119,9 +130,15 @@ body{
 
 .paneBody{ padding: 12px; }
 
-.paneLeft{ display:flex; flex-direction:column; min-height: 0; }
-.paneLeft .paneBody{ flex: 1 1 auto; min-height: 0; display: flex; }
-.paneRight{ display:flex; flex-direction:column; gap: 14px; }
+.paneLeft{ display:flex; flex-direction:column; min-height: 0; align-self: stretch; }
+.paneLeft .paneBody{ flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.paneRight{ display:flex; flex-direction:column; gap: 14px; min-height: 0; align-self: stretch; }
+
+@media (min-width: 901px){
+  /* Keep the right-side stack aligned to the bottom of the grid row,
+     so ALL EVENTS and the right stack share the same overall height. */
+  .paneRight > .pane:last-child{ margin-top: auto; }
+}
 
 .eventList{
   padding: 8px;
@@ -177,8 +194,9 @@ body{
   box-shadow: inset 0 1px 0 var(--border);
   padding: 10px;
   display:grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: max-content max-content;
   gap: 10px;
+  justify-content: start;
 }
 
 .btn{
@@ -585,6 +603,7 @@ body.widget{
 }
 
 .widgetItemTitle{ font-weight: 850; font-size: 14px; letter-spacing: .2px; text-shadow: 0 1px 0 rgba(0,0,0,.18); text-align: left; }
+.widgetItemLocation{ font-size: 11px; opacity: .92; text-align: left; }
 .widgetItemDate{ font-size: 11px; opacity: .92; text-align: left; }
 
 .due{ opacity: .95; }

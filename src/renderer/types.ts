@@ -14,6 +14,7 @@ export type IntervalUnit = 'day' | 'week' | 'month' | 'year';
 export type CountdownEvent = {
   id: string;
   title: string;
+  location?: string;
   dateLocal: string;
   color: string;
   textColor: string;

@@ -18,6 +18,7 @@ type IntervalUnit = 'day' | 'week' | 'month' | 'year';
 export type CountdownEvent = {
   id: string;
   title: string;
+  location?: string;
   dateLocal: string; // local datetime-local string: YYYY-MM-DDTHH:mm
   color: string;
   textColor: string;
@@ -402,9 +403,9 @@ function createMainWindow() {
   const iconPath = path.join(app.getAppPath(), 'assets', 'icon.png');
   const win = new BrowserWindow({
     width: 960,
-    height: 568,
+    height: 590,
     minWidth: 860,
-    minHeight: 540,
+    minHeight: 530,
     title: 'Countdown Reminder',
     icon: iconPath,
     show: false,
@@ -763,6 +764,26 @@ ipcMain.handle('widget:toggle', (_evt, eventId: string, pinned: boolean) => {
 
 ipcMain.handle('prefs:open', (_evt, eventId: string | null) => {
   openPreferences(eventId);
+});
+
+ipcMain.handle('prefs:fitHeight', (_evt, contentHeight: number) => {
+  if (!mainWindow) return;
+  if (typeof contentHeight !== 'number' || !Number.isFinite(contentHeight)) return;
+
+  const desired = Math.max(200, Math.round(contentHeight));
+  const [cw, ch] = mainWindow.getContentSize();
+  if (desired <= ch + 2) return;
+
+  try {
+    const display = screen.getDisplayMatching(mainWindow.getBounds());
+    const maxContentHeight = Math.max(300, display.workArea.height - 80);
+    const nextHeight = Math.min(desired, maxContentHeight);
+    if (nextHeight > ch + 2) {
+      mainWindow.setContentSize(cw, nextHeight);
+    }
+  } catch {
+    // ignore
+  }
 });
 
 ipcMain.handle('event:delete', (_evt, eventId: string) => {
