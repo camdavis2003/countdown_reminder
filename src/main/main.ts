@@ -1,6 +1,44 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, screen, Tray } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, screen, shell, Tray } from 'electron';
 import path from 'node:path';
 import Store from 'electron-store';
+
+function normalizeExternalUrl(rawUrl: string): string | null {
+  if (typeof rawUrl !== 'string') return null;
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return null;
+  const withProtocol = trimmed.startsWith('www.') ? `https://${trimmed}` : trimmed;
+  if (!/^https?:\/\//i.test(withProtocol)) return null;
+  try {
+    const parsed = new URL(withProtocol);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function installExternalLinkHandlers(win: BrowserWindow): void {
+  const devUrl = getDevServerUrl();
+
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    // Allow dev-server internal opens to be denied silently.
+    const normalized = normalizeExternalUrl(url);
+    if (normalized && (!devUrl || !normalized.startsWith(devUrl))) {
+      shell.openExternal(normalized);
+    }
+    return { action: 'deny' };
+  });
+
+  // Safety net: if something tries to navigate the current window to a web URL,
+  // open it externally instead.
+  win.webContents.on('will-navigate', (e, url) => {
+    const normalized = normalizeExternalUrl(url);
+    if (!normalized) return;
+    if (devUrl && normalized.startsWith(devUrl)) return;
+    e.preventDefault();
+    shell.openExternal(normalized);
+  });
+}
 
 type Recurrence =
   | 'none'
@@ -18,6 +56,7 @@ type IntervalUnit = 'day' | 'week' | 'month' | 'year';
 export type CountdownEvent = {
   id: string;
   title: string;
+  location?: string;
   dateLocal: string; // local datetime-local string: YYYY-MM-DDTHH:mm
   color: string;
   textColor: string;
@@ -402,9 +441,9 @@ function createMainWindow() {
   const iconPath = path.join(app.getAppPath(), 'assets', 'icon.png');
   const win = new BrowserWindow({
     width: 960,
-    height: 568,
+    height: 590,
     minWidth: 860,
-    minHeight: 540,
+    minHeight: 530,
     title: 'Countdown Reminder',
     icon: iconPath,
     show: false,
@@ -419,6 +458,26 @@ function createMainWindow() {
   // Keep the Preferences window clean (no native menu bar).
   win.setMenuBarVisibility(false);
   win.setMenu(null);
+
+  installExternalLinkHandlers(win);
+
+  // Provide a minimal right-click context menu for editable fields (Cut/Copy/Paste).
+  // Electron does not show one by default.
+  win.webContents.on('context-menu', (_event, params) => {
+    if (!params.isEditable) return;
+    const menu = Menu.buildFromTemplate([
+      { role: 'undo' },
+      { role: 'redo' },
+      { type: 'separator' },
+      { role: 'cut' },
+      { role: 'copy' },
+      { role: 'paste' },
+      { role: 'delete' },
+      { type: 'separator' },
+      { role: 'selectAll' }
+    ]);
+    menu.popup({ window: win });
+  });
 
   win.once('ready-to-show', () => {
     win.show();
@@ -507,6 +566,8 @@ function createWidgetGroupWindow() {
       preload: path.join(__dirname, 'preload.js')
     }
   });
+
+  installExternalLinkHandlers(win);
 
   try {
     win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
@@ -765,11 +826,37 @@ ipcMain.handle('prefs:open', (_evt, eventId: string | null) => {
   openPreferences(eventId);
 });
 
+ipcMain.handle('prefs:fitHeight', (_evt, contentHeight: number) => {
+  if (!mainWindow) return;
+  if (typeof contentHeight !== 'number' || !Number.isFinite(contentHeight)) return;
+
+  const desired = Math.max(200, Math.round(contentHeight));
+  const [cw, ch] = mainWindow.getContentSize();
+  if (desired <= ch + 2) return;
+
+  try {
+    const display = screen.getDisplayMatching(mainWindow.getBounds());
+    const maxContentHeight = Math.max(300, display.workArea.height - 80);
+    const nextHeight = Math.min(desired, maxContentHeight);
+    if (nextHeight > ch + 2) {
+      mainWindow.setContentSize(cw, nextHeight);
+    }
+  } catch {
+    // ignore
+  }
+});
+
 ipcMain.handle('event:delete', (_evt, eventId: string) => {
   const { events } = store.store;
   const next = events.filter((e) => e.id !== eventId);
   saveEvents(next);
   return getState();
+});
+
+ipcMain.handle('shell:openExternal', async (_evt, rawUrl: string) => {
+  const normalized = normalizeExternalUrl(rawUrl);
+  if (!normalized) return;
+  await shell.openExternal(normalized);
 });
 
 ipcMain.handle('app:quit', () => {

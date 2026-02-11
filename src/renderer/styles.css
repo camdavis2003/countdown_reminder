@@ -25,16 +25,26 @@ body{
 /* Preferences UI */
 .prefs{
   padding: 14px;
-  height: 100vh;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.prefsBody{
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
 
 .prefsCredit{
-  position: fixed;
-  right: 14px;
-  bottom: 10px;
-  font-size: 12px;
+  flex: 0 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  align-self: stretch;
+  padding: 0 14px;
+  font-size: 14px;
   font-weight: 800;
   color: var(--muted);
   user-select: none;
@@ -119,9 +129,16 @@ body{
 
 .paneBody{ padding: 12px; }
 
-.paneLeft{ display:flex; flex-direction:column; min-height: 0; }
-.paneLeft .paneBody{ flex: 1 1 auto; min-height: 0; display: flex; }
-.paneRight{ display:flex; flex-direction:column; gap: 14px; }
+.paneLeft{ display:flex; flex-direction:column; min-height: 0; align-self: stretch; }
+.paneLeft .paneBody{ flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.rightColumn{ display:flex; flex-direction:column; min-height: 0; align-self: stretch; }
+.paneRight{ display:flex; flex-direction:column; gap: 14px; min-height: 0; }
+
+/* Footer belongs to the right column and sits at the bottom */
+.rightColumn .prefsCredit{
+  margin-top: auto;
+  transform: translateY(6px);
+}
 
 .eventList{
   padding: 8px;
@@ -175,10 +192,11 @@ body{
   margin-top:auto;
   border-top: 0;
   box-shadow: inset 0 1px 0 var(--border);
-  padding: 10px;
+  padding: 12px;
   display:grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: max-content max-content;
   gap: 10px;
+  justify-content: end;
 }
 
 .btn{
@@ -585,6 +603,16 @@ body.widget{
 }
 
 .widgetItemTitle{ font-weight: 850; font-size: 14px; letter-spacing: .2px; text-shadow: 0 1px 0 rgba(0,0,0,.18); text-align: left; }
+.widgetItemLocation{ font-size: 11px; opacity: .92; text-align: left; }
+.widgetItemLocationLink{
+  color: inherit;
+  text-decoration: underline;
+  -webkit-app-region: no-drag;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.widgetItemLocationLink:hover{ opacity: .85; }
 .widgetItemDate{ font-size: 11px; opacity: .92; text-align: left; }
 
 .due{ opacity: .95; }
