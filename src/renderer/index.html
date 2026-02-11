@@ -39,109 +39,115 @@
             </div>
           </section>
 
-          <div class="paneRight">
-            <section class="pane">
-              <div class="paneHeader">EVENT</div>
-              <div class="paneBody">
-                <div class="formRow">
-                  <label class="formLabel" for="detailTitle">Title</label>
-                  <input id="detailTitle" type="text" />
-                </div>
+          <div class="rightColumn">
+            <div class="paneRight">
+              <section class="pane">
+                <div class="paneHeader">EVENT</div>
+                <div class="paneBody">
+                  <div class="formRow">
+                    <label class="formLabel" for="detailTitle">Title</label>
+                    <input id="detailTitle" type="text" />
+                  </div>
 
-                <div class="formRow">
-                  <label class="formLabel" for="detailLocation">Location</label>
-                  <input id="detailLocation" type="text" />
-                </div>
+                  <div class="formRow">
+                    <label class="formLabel" for="detailLocation"
+                      >Location</label
+                    >
+                    <input id="detailLocation" type="text" />
+                  </div>
 
-                <div class="formRow">
-                  <label class="formLabel" for="detailDate">Date / Time</label>
-                  <input id="detailDate" type="datetime-local" />
-                </div>
+                  <div class="formRow">
+                    <label class="formLabel" for="detailDate"
+                      >Date / Time</label
+                    >
+                    <input id="detailDate" type="datetime-local" />
+                  </div>
 
-                <div class="formRow">
-                  <label class="formLabel" for="detailRecurrence"
-                    >Recurrence</label
-                  >
-                  <div class="fieldStack">
-                    <select id="detailRecurrence">
-                      <option value="none" selected>None</option>
-                      <option value="daily">Daily</option>
-                      <option value="weekly">Weekly</option>
-                      <option value="monthly">Monthly</option>
-                      <option value="yearly">Yearly</option>
-                      <option value="interval">Custom (Every X…)</option>
-                    </select>
-                    <div
-                      id="detailRecurrenceSummary"
-                      class="formHelp"
-                      aria-live="polite"
-                    ></div>
+                  <div class="formRow">
+                    <label class="formLabel" for="detailRecurrence"
+                      >Recurrence</label
+                    >
+                    <div class="fieldStack">
+                      <select id="detailRecurrence">
+                        <option value="none" selected>None</option>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="yearly">Yearly</option>
+                        <option value="interval">Custom (Every X…)</option>
+                      </select>
+                      <div
+                        id="detailRecurrenceSummary"
+                        class="formHelp"
+                        aria-live="polite"
+                      ></div>
+                    </div>
+                  </div>
+
+                  <label class="checkRow">
+                    <input id="detailPinned" type="checkbox" />
+                    <span>Pin to top of stack</span>
+                  </label>
+                </div>
+              </section>
+
+              <section class="pane">
+                <div class="paneHeader">CUSTOMIZE</div>
+                <div class="paneBody">
+                  <div class="formRow">
+                    <label class="formLabel" for="detailBgBtn"
+                      >Background Color</label
+                    >
+                    <button
+                      id="detailBgBtn"
+                      class="colorCombo"
+                      type="button"
+                      aria-haspopup="dialog"
+                      aria-expanded="false"
+                    >
+                      <span
+                        id="detailBgSwatch"
+                        class="colorSwatch"
+                        aria-hidden="true"
+                      ></span>
+                      <span id="detailBgText" class="colorComboText"
+                        >#4F46E5</span
+                      >
+                      <span class="colorComboArrow" aria-hidden="true"></span>
+                    </button>
+                  </div>
+
+                  <div class="formRow">
+                    <label class="formLabel" for="detailTextBtn"
+                      >Text Color</label
+                    >
+                    <button
+                      id="detailTextBtn"
+                      class="colorCombo"
+                      type="button"
+                      aria-haspopup="dialog"
+                      aria-expanded="false"
+                    >
+                      <span
+                        id="detailTextSwatch"
+                        class="colorSwatch"
+                        aria-hidden="true"
+                      ></span>
+                      <span id="detailTextText" class="colorComboText"
+                        >#FFFFFF</span
+                      >
+                      <span class="colorComboArrow" aria-hidden="true"></span>
+                    </button>
                   </div>
                 </div>
+              </section>
+            </div>
 
-                <label class="checkRow">
-                  <input id="detailPinned" type="checkbox" />
-                  <span>Pin to top of stack</span>
-                </label>
-              </div>
-            </section>
-
-            <section class="pane">
-              <div class="paneHeader">CUSTOMIZE</div>
-              <div class="paneBody">
-                <div class="formRow">
-                  <label class="formLabel" for="detailBgBtn"
-                    >Background Color</label
-                  >
-                  <button
-                    id="detailBgBtn"
-                    class="colorCombo"
-                    type="button"
-                    aria-haspopup="dialog"
-                    aria-expanded="false"
-                  >
-                    <span
-                      id="detailBgSwatch"
-                      class="colorSwatch"
-                      aria-hidden="true"
-                    ></span>
-                    <span id="detailBgText" class="colorComboText"
-                      >#4F46E5</span
-                    >
-                    <span class="colorComboArrow" aria-hidden="true"></span>
-                  </button>
-                </div>
-
-                <div class="formRow">
-                  <label class="formLabel" for="detailTextBtn"
-                    >Text Color</label
-                  >
-                  <button
-                    id="detailTextBtn"
-                    class="colorCombo"
-                    type="button"
-                    aria-haspopup="dialog"
-                    aria-expanded="false"
-                  >
-                    <span
-                      id="detailTextSwatch"
-                      class="colorSwatch"
-                      aria-hidden="true"
-                    ></span>
-                    <span id="detailTextText" class="colorComboText"
-                      >#FFFFFF</span
-                    >
-                    <span class="colorComboArrow" aria-hidden="true"></span>
-                  </button>
-                </div>
-              </div>
-            </section>
+            <div class="prefsCredit" aria-hidden="true">
+              <strong>Cameron J. Davis</strong>
+            </div>
           </div>
         </main>
-      </div>
-
-      <div class="prefsCredit" aria-hidden="true">
-        <strong>Cameron J. Davis</strong>
       </div>
     </div>
 
