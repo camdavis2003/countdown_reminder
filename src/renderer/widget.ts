@@ -321,6 +321,13 @@ function renderGroup(events: CountdownEvent[]) {
 
     const showDone = isPast;
     const location = (ev0.location ?? '').trim();
+    const locationUrl = normalizeUrlIfPossible(location);
+
+    const locationHtml = !location
+      ? ''
+      : locationUrl
+        ? `<div class="widgetItemLocation"><a class="widgetItemLocationLink" href="${escapeHtml(locationUrl)}" target="_blank" rel="noreferrer">${escapeHtml(location)}</a></div>`
+        : `<div class="widgetItemLocation">${escapeHtml(location)}</div>`;
 
     card.innerHTML = `
       <div class="widgetItemDays">
@@ -338,7 +345,7 @@ function renderGroup(events: CountdownEvent[]) {
           </div>
         </div>
         <div class="widgetItemDate">${escapeHtml(formatShortDateLabel(dueLocal))}</div>
-        ${location ? `<div class="widgetItemLocation">${escapeHtml(location)}</div>` : ''}
+        ${locationHtml}
       </div>
     `;
 
@@ -373,6 +380,20 @@ function escapeHtml(s: string) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function normalizeUrlIfPossible(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const withProtocol = trimmed.startsWith('www.') ? `https://${trimmed}` : trimmed;
+  if (!/^https?:\/\//i.test(withProtocol)) return null;
+  try {
+    const u = new URL(withProtocol);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+    return u.toString();
+  } catch {
+    return null;
+  }
 }
 
 async function refresh() {

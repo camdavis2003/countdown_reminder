@@ -1,6 +1,44 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, screen, Tray } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, screen, shell, Tray } from 'electron';
 import path from 'node:path';
 import Store from 'electron-store';
+
+function normalizeExternalUrl(rawUrl: string): string | null {
+  if (typeof rawUrl !== 'string') return null;
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return null;
+  const withProtocol = trimmed.startsWith('www.') ? `https://${trimmed}` : trimmed;
+  if (!/^https?:\/\//i.test(withProtocol)) return null;
+  try {
+    const parsed = new URL(withProtocol);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function installExternalLinkHandlers(win: BrowserWindow): void {
+  const devUrl = getDevServerUrl();
+
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    // Allow dev-server internal opens to be denied silently.
+    const normalized = normalizeExternalUrl(url);
+    if (normalized && (!devUrl || !normalized.startsWith(devUrl))) {
+      shell.openExternal(normalized);
+    }
+    return { action: 'deny' };
+  });
+
+  // Safety net: if something tries to navigate the current window to a web URL,
+  // open it externally instead.
+  win.webContents.on('will-navigate', (e, url) => {
+    const normalized = normalizeExternalUrl(url);
+    if (!normalized) return;
+    if (devUrl && normalized.startsWith(devUrl)) return;
+    e.preventDefault();
+    shell.openExternal(normalized);
+  });
+}
 
 type Recurrence =
   | 'none'
@@ -421,6 +459,26 @@ function createMainWindow() {
   win.setMenuBarVisibility(false);
   win.setMenu(null);
 
+  installExternalLinkHandlers(win);
+
+  // Provide a minimal right-click context menu for editable fields (Cut/Copy/Paste).
+  // Electron does not show one by default.
+  win.webContents.on('context-menu', (_event, params) => {
+    if (!params.isEditable) return;
+    const menu = Menu.buildFromTemplate([
+      { role: 'undo' },
+      { role: 'redo' },
+      { type: 'separator' },
+      { role: 'cut' },
+      { role: 'copy' },
+      { role: 'paste' },
+      { role: 'delete' },
+      { type: 'separator' },
+      { role: 'selectAll' }
+    ]);
+    menu.popup({ window: win });
+  });
+
   win.once('ready-to-show', () => {
     win.show();
     win.focus();
@@ -508,6 +566,8 @@ function createWidgetGroupWindow() {
       preload: path.join(__dirname, 'preload.js')
     }
   });
+
+  installExternalLinkHandlers(win);
 
   try {
     win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
@@ -791,6 +851,12 @@ ipcMain.handle('event:delete', (_evt, eventId: string) => {
   const next = events.filter((e) => e.id !== eventId);
   saveEvents(next);
   return getState();
+});
+
+ipcMain.handle('shell:openExternal', async (_evt, rawUrl: string) => {
+  const normalized = normalizeExternalUrl(rawUrl);
+  if (!normalized) return;
+  await shell.openExternal(normalized);
 });
 
 ipcMain.handle('app:quit', () => {

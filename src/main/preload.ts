@@ -52,6 +52,9 @@ contextBridge.exposeInMainWorld('countdown', {
     await ipcRenderer.invoke('prefs:open', eventId ?? null);
   },
   deleteEvent: async (eventId: string): Promise<AppState> => ipcRenderer.invoke('event:delete', eventId),
+  openExternal: async (url: string): Promise<void> => {
+    await ipcRenderer.invoke('shell:openExternal', url);
+  },
   quitApp: async (): Promise<void> => {
     await ipcRenderer.invoke('app:quit');
   },

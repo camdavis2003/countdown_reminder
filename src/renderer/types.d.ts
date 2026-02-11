@@ -47,6 +47,7 @@ declare global {
       toggleWidget: (eventId: string, pinned: boolean) => Promise<AppState>;
       openPreferences: (eventId?: string) => Promise<void>;
       deleteEvent: (eventId: string) => Promise<AppState>;
+      openExternal: (url: string) => Promise<void>;
       quitApp: () => Promise<void>;
       onSelectEvent: (handler: (eventId: string) => void) => () => void;
       onEventsUpdated: (handler: () => void) => () => void;
